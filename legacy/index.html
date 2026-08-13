@@ -102,31 +102,6 @@
       max-width: 650px;
     }
 
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.35rem 0.85rem;
-      border-radius: var(--radius-full);
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .badge-orange {
-      background: rgba(255, 107, 0, 0.15);
-      color: var(--accent-orange);
-      border: 1px solid rgba(255, 107, 0, 0.3);
-    }
-
-    .badge-cyan {
-      background: rgba(0, 229, 255, 0.15);
-      color: var(--accent-cyan);
-      border: 1px solid rgba(0, 229, 255, 0.3);
-    }
-
     .btn {
       display: inline-flex;
       align-items: center;
@@ -553,11 +528,6 @@
          ========================================================================== -->
     <section class="hero container" id="hero">
       <div class="hero-content">
-        <!-- EDIT: Club Tagline & Announcement Badge -->
-        <div class="hero-tag">
-          <span class="badge badge-orange">Dr. Charles Best Secondary 3D Printing Club</span>
-        </div>
-
         <!-- EDIT: Main Catchy Headline -->
         <h1 class="hero-title">
           Powering Imagination, one layer at a time.
@@ -576,9 +546,6 @@
       <div class="hero-preview">
         <div class="hero-canvas-placeholder">
           <div class="cube-wireframe"></div>
-          <p style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan);">
-            [ Interactive 3D Model Stage ]
-          </p>
           <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem;">
             <!-- EDIT: Note about STL model viewer or featured print demo -->
             Drag to rotate • Scroll to zoom
@@ -591,7 +558,6 @@
          3. ABOUT & CLUB INFORMATION
          ========================================================================== -->
     <section class="section container" id="about">
-      <span class="badge badge-cyan">About Us</span>
       <h2 class="section-title">CBSS 3D Printing Club</h2>
       <p class="section-subtitle">
         Whether you need a custom part for your projects, an artistic piece, or want to learn general 3D printing and Modelling, our club provides tools and mentorship!
@@ -674,27 +640,21 @@
 
       </div>
     </section>
-
     <!-- ==========================================================================
          6. SHOWCASE GALLERY
          ========================================================================== -->
     <section class="section container" id="gallery">
-      <span class="badge badge-orange">Student Work</span>
-      <h2 class="section-title">Featured Student Prints</h2>
+      <h2 class="section-title">Student Works</h2>
       <p class="section-subtitle">Explore some of the incredible projects designed and printed by CBSS students.</p>
 
       <div class="gallery-grid">
         <!-- EDIT: Project Card 1 -->
         <div class="card">
           <div class="gallery-image-container">
-            [ Project Photo / 3D Model Image ]
+            <img src="img/Student Works/Wizard.png" alt="3DPC Logo">
           </div>
-          <div class="gallery-title">Scuba Benchy</div>
-          <div class="gallery-author">Designed by Robotics Team • Grade 11</div>
-          <div class="gallery-meta">
-            <span class="badge badge-cyan">PETG</span>
-            <span class="badge badge-orange">0.16mm Layer</span>
-          </div>
+          <div class="gallery-title">Wizard</div>
+          <div class="gallery-author">A cute,tiny wizard figure. Designed by Parham</div>
         </div>
 
         <!-- EDIT: Project Card 2 -->
@@ -704,10 +664,6 @@
           </div>
           <div class="gallery-title">Low-Poly Dragon Sculpture</div>
           <div class="gallery-author">Printed by Maya L. • Grade 10</div>
-          <div class="gallery-meta">
-            <span class="badge badge-cyan">Silk PLA</span>
-            <span class="badge badge-orange">4 hrs Print</span>
-          </div>
         </div>
 
         <!-- EDIT: Project Card 3 -->
@@ -717,10 +673,6 @@
           </div>
           <div class="gallery-title">Custom Smartphone Stand</div>
           <div class="gallery-author">Designed by Jordan K. • Grade 9</div>
-          <div class="gallery-meta">
-            <span class="badge badge-cyan">PLA Black</span>
-            <span class="badge badge-orange">15% Infill</span>
-          </div>
         </div>
       </div>
 
@@ -805,7 +757,7 @@
           <div class="guide-icon">🔪</div>
           <h3 style="margin-bottom: 0.5rem;">Slicing: OrcaSlicer / Cura</h3>
           <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
-            Learn how to turn 3D models into G-code for our lab printers, setup supports, layer heights, and infill patterns.
+            Learn how to turn 3D models into G-code for our club printers, setup supports, layer heights, and infill patterns.
           </p>
           <a href="#" class="nav-link" style="color: var(--accent-orange); font-weight: 600;">Download CBSS Slicer Presets</a>
         </div>
@@ -817,7 +769,6 @@
          ========================================================================== -->
     <section class="section container" id="join">
       <div class="card" style="background: linear-gradient(135deg, rgba(255, 107, 0, 0.12), rgba(0, 229, 255, 0.08)); border: 1px solid rgba(255, 107, 0, 0.4); text-align: center; padding: 4rem 2rem;">
-        <span class="badge badge-orange" style="margin-bottom: 1rem;">Enrollment Open</span>
         <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem;">Join CBSS 3D Printing Club</h2>
         <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto 2rem; font-size: 1.1rem;">
           No prior experience needed! Learn 3D modeling, operate modern 3D printers, and bring your creative ideas to reality.
@@ -844,14 +795,14 @@
         <!-- EDIT: School address or club advisor details -->
         <p style="color: var(--text-muted); max-width: 320px;">
           Dr. Charles Best Secondary School<br>
-          Additive Manufacturing & Student Prototyping Lab
+          Room 113 (Drafting Room), 2525 Como Lake Ave, Coquitlam, BC V3J 3R8<br>
         </p>
       </div>
 
       <div>
         <h4 style="color: var(--text-main); margin-bottom: 1rem;">Quick Links</h4>
         <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem;">
-          <li><a href="#about" class="nav-link">About Lab</a></li>
+          <li><a href="#about" class="nav-link">About Club</a></li>
           <li><a href="#calculator" class="nav-link">Request Print</a></li>
           <li><a href="#gallery" class="nav-link">Student Showcase</a></li>
         </ul>

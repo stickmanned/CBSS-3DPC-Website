@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------
+   CBSS 3DPC design tokens
+   Navy and silver are sampled from img/logo.png (the printed club
+   mark). Yellow is the only colour that carries meaning: it marks
+   the thing you can act on. Everything else is greyscale on purpose
+   — the remaining colour on this site comes from photographs of
+   actual prints.
+   --------------------------------------------------------------- */
+@theme {
+  --color-paper:  #EDEEEA;
+  --color-chalk:  #F8F9F6;
+  --color-navy:   #213366;
+  --color-ink:    #121B3D;
+  --color-silver: #9BA3B5;
+  --color-signal: #E8B613;
+
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-body:    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  --radius-none: 0px;
+}
+
+/* Square corners everywhere. No exceptions. */
+* {
+  border-radius: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- type roles ------------------------------------------------ */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-silver);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 0.94;
+  letter-spacing: -0.025em;
+  color: var(--color-navy);
+}
+
+.data {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- focus: always visible, always yellow ---------------------- */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--color-signal);
+  outline-offset: 2px;
+}
+
+/* ---- respect reduced motion ------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

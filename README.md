@@ -1,25 +1,82 @@
-# CBSS 3D Printing Club Website
+# CBSS 3D Printing Club
 
-Official website for the Dr. Charles Best Secondary School (CBSS) 3D Printing Club.
+Website for the Dr. Charles Best Secondary (SD43) 3D Printing Club.
 
-## Website Overview
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4.
 
-This website is a clean, responsive single-file HTML/CSS/JS application designed specifically for the CBSS 3D Printing Club.
+## Running it
 
-### Included Sections to Fill In:
-1. **Header & Navigation**: Club logo and anchor links (`#about`, `#printers`, `#calculator`, `#gallery`, `#guides`, `#join`).
-2. **Hero Section**: Tagline, title, overview, quick statistics counter, and 3D stage preview placeholder.
-3. **About Lab**: Lab location (Room 112), meeting days/times, supported filament materials.
-4. **Printer Fleet Status**: Dashboard showing lab 3D printer availability, live job progress bars, nozzle/bed temperatures.
-5. **Print Request Calculator**: Interactive student/teacher form with real-time weight, print duration, and material cost estimation math.
-6. **Showcase Gallery**: Grid of student project cards with tags for material and layer resolution.
-7. **CAD & Slicing Guides**: Learning resources for Tinkercad, Fusion 360, and slicer software (OrcaSlicer/Cura).
-8. **Join Club**: Enrollment call-to-action form.
+```bash
+npm install
+npm run dev
+```
 
-## How to Edit Information
+Then open http://localhost:3000.
 
-Open [index.html](file:///Users/william/Code/CBSS-3DPC-Website/index.html) in any text editor and search for comments starting with `<!-- EDIT: ... -->`. Replace the placeholder text with your school's actual details!
+## Where things are
 
-## Previewing Locally
+```
+app/
+  lib/content.ts        ← EDIT THIS. Club details, the Log, gallery, guides.
+  globals.css           ← design tokens (colours, fonts)
+  components/           ← shared UI
+  page.tsx              ← home
+  about|request|gallery|guides|log/page.tsx
+public/img/
+  logo.png              ← club mark, background removed
+  logo-source.png       ← the original render, untouched
+  student-works/        ← photos of prints
+legacy/index.html       ← the old single-file site, kept for reference
+```
 
-You can open `index.html` directly in any modern browser (Chrome, Safari, Edge, Firefox) by double-clicking it, or using a local server extension such as Live Server.
+**Almost everything you'll want to change is in `app/lib/content.ts`.** Meeting
+times, the room, the advisor's email, the Log, the gallery, the guides — all of
+it is plain data in that one file. You shouldn't need to touch a component to
+update the club's details.
+
+## Adding a print to the Log
+
+The Log is the heart of this site. Every print goes in it, including the ones
+that fail — the failure notes are institutional memory for members who haven't
+joined yet.
+
+Open `app/lib/content.ts` and add an entry to `log`:
+
+```ts
+{
+  date: "2026-03-11",
+  title: "Gearbox housing",
+  who: "Priya",
+  material: "PETG",
+  colour: "BLACK",
+  duration: "5h 40m",
+  ok: false,
+  note: "Layer shift about 40mm up. Belt was loose. Retensioned and reprinted.",
+}
+```
+
+## Adding to the gallery
+
+1. Put the photo in `public/img/student-works/`. Take it on a phone, in the lab,
+   in someone's hand — don't stage it.
+2. Add an entry to `gallery` in `app/lib/content.ts`.
+
+## Design
+
+Navy `#213366` and silver are sampled from the club's printed logo. Yellow
+`#E8B613` marks anything you can act on, and nothing else. Everything else is
+greyscale on purpose — the remaining colour on this site comes from photographs
+of real prints.
+
+Type is Bricolage Grotesque (headings), Source Serif 4 (body), Martian Mono
+(dates, materials, durations).
+
+The full component library lives in Claude Design under **CBSS 3DPC**.
+
+## Still to do
+
+- [ ] Fill in the real printer make/model and advisor email in `content.ts`
+- [ ] Replace the placeholder Log entries with real prints
+- [ ] Wire the request form to a database (currently composes an email)
+- [ ] Admin page for the print queue
+- [ ] Deploy to Vercel
