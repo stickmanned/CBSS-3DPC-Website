@@ -34,7 +34,7 @@ export default function Gallery() {
                   priority
                 />
                 <p className="absolute left-5 top-5 rounded-full bg-ink/85 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.11em] text-white backdrop-blur sm:left-7 sm:top-7">
-                  Project / 001
+                  Featured print
                 </p>
               </div>
 
@@ -76,7 +76,7 @@ export default function Gallery() {
                     </div>
                     <div className="p-7">
                       <p className="eyebrow text-slate">
-                        Project / {String(index + 2).padStart(3, "0")}
+                        Student print
                       </p>
                       <h2 className="mt-3 text-4xl text-ink">{work.title}</h2>
                       <p className="mt-4 text-slate">{work.blurb}</p>
@@ -88,7 +88,7 @@ export default function Gallery() {
           </>
         ) : (
           <div className="build-grid rounded-[var(--radius-card)] border border-mist bg-cloud p-10 sm:p-16">
-            <p className="eyebrow text-slate">Collection / 000</p>
+            <p className="eyebrow text-slate">Club gallery</p>
             <h2 className="mt-5 max-w-[12ch] text-5xl text-ink sm:text-6xl">
               The gallery is taking shape.
             </h2>

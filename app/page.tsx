@@ -88,7 +88,7 @@ export default function Home() {
       {feature && (
         <section className="mx-auto max-w-6xl px-5 py-24 md:py-32">
           <div className="grid gap-8 md:grid-cols-[.55fr_1fr] md:items-end">
-            <p className="eyebrow text-slate">Student work / 001</p>
+            <p className="eyebrow text-slate">Featured print</p>
             <div>
               <h2 className="max-w-[12ch] text-5xl text-ink sm:text-6xl">
                 The work is the proof.
@@ -151,7 +151,7 @@ export default function Home() {
               className="group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-signal p-7 text-ink transition-transform duration-300 hover:-translate-y-1 sm:p-10 lg:col-span-7"
             >
               <div className="flex items-start justify-between gap-6">
-                <p className="eyebrow">01 / Request</p>
+                <p className="eyebrow">Request a print</p>
                 <span
                   aria-hidden="true"
                   className="grid size-12 place-items-center rounded-full border border-ink/30 font-mono transition-transform duration-300 group-hover:translate-x-1"
@@ -173,7 +173,7 @@ export default function Home() {
               className="group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-navy p-7 text-white transition-transform duration-300 hover:-translate-y-1 sm:p-10 lg:col-span-5"
             >
               <div className="flex items-start justify-between gap-6">
-                <p className="eyebrow text-white/65">02 / Join</p>
+                <p className="eyebrow text-white/65">Drop by a meeting</p>
                 <span
                   aria-hidden="true"
                   className="grid size-12 place-items-center rounded-full border border-white/30 font-mono text-signal transition-transform duration-300 group-hover:translate-x-1"
