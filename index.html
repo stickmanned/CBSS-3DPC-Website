@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CBSS 3D Printing Club | Dr. Charles Best Secondary</title>
+  <meta name="description" content="Official website for the CBSS 3D Printing Club at Dr. Charles Best Secondary School. Learn 3D design, request prints, and explore additive manufacturing.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM & TOKENS
+       ========================================================================== */
+    :root {
+      --bg-dark: #0a0e17;
+      --bg-card: rgba(18, 26, 42, 0.7);
+      --bg-card-hover: rgba(28, 39, 61, 0.8);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(0, 229, 255, 0.3);
+      
+      --accent-orange: #ff6b00;
+      --accent-orange-glow: rgba(255, 107, 0, 0.4);
+      --accent-cyan: #00e5ff;
+      --accent-cyan-glow: rgba(0, 229, 255, 0.4);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --font-body: 'Outfit', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Reset & Core Base */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: dark;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(255, 107, 0, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 60%, rgba(0, 229, 255, 0.06) 0%, transparent 45%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Utility Classes */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .section {
+      padding: 5rem 0;
+    }
+
+    .section-title {
+      font-size: 2.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      margin-bottom: 3rem;
+      max-width: 650px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: var(--radius-full);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-orange {
+      background: rgba(255, 107, 0, 0.15);
+      color: var(--accent-orange);
+      border: 1px solid rgba(255, 107, 0, 0.3);
+    }
+
+    .badge-cyan {
+      background: rgba(0, 229, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      padding: 0.8rem 1.6rem;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: var(--transition);
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-orange), #e05300);
+      color: #ffffff;
+      box-shadow: 0 4px 20px var(--accent-orange-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px var(--accent-orange-glow);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      backdrop-filter: blur(12px);
+      transition: var(--transition);
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      background: var(--bg-card-hover);
+    }
+
+    /* ==========================================================================
+       HEADER & NAVIGATION
+       ========================================================================== */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 14, 23, 0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 75px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.01em;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-cyan));
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #000;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-link {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: var(--transition);
+    }
+
+    .nav-link:hover {
+      color: var(--accent-cyan);
+    }
+
+    /* ==========================================================================
+       HERO SECTION
+       ========================================================================== */
+    .hero {
+      padding: 6rem 0 4rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .hero-tag {
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-title {
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-description {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      max-width: 520px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 2.5rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .stat-number {
+      font-family: var(--font-mono);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+
+    .hero-preview {
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .hero-canvas-placeholder {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .cube-wireframe {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 1.5rem;
+      border: 2px dashed var(--accent-cyan);
+      border-radius: var(--radius-md);
+      animation: rotateCube 12s linear infinite;
+      box-shadow: 0 0 30px var(--accent-cyan-glow);
+    }
+
+    @keyframes rotateCube {
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.08); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+
+
+    .printer-telemetry {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      padding-top: 1rem;
+      border-top: 1px dashed var(--border-color);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       PRINT CALCULATOR & REQUEST FORM
+       ========================================================================== */
+    .calculator-layout {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      transition: var(--transition);
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 15px var(--accent-cyan-glow);
+    }
+
+    .range-slider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .range-slider input {
+      flex: 1;
+      accent-color: var(--accent-orange);
+    }
+
+    .estimate-card {
+      background: linear-gradient(145deg, rgba(255, 107, 0, 0.08), rgba(0, 229, 255, 0.05));
+      border: 1px solid rgba(255, 107, 0, 0.3);
+    }
+
+    .estimate-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.95rem;
+    }
+
+    .estimate-row:last-child {
+      border-bottom: none;
+    }
+
+    .estimate-value {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    /* ==========================================================================
+       SHOWCASE GALLERY
+       ========================================================================== */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.75rem;
+    }
+
+    .gallery-image-container {
+      aspect-ratio: 4/3;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.4);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      border: 1px solid var(--border-color);
+    }
+
+    .gallery-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .gallery-author {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .gallery-meta {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .submission-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 1.5rem;
+      margin-top: 2rem;
+      align-items: start;
+    }
+
+    .submission-note {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      margin-bottom: 1rem;
+    }
+
+    /* ==========================================================================
+       GUIDES & RESOURCES
+       ========================================================================== */
+    .guides-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .guide-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    /* ==========================================================================
+       FOOTER
+       ========================================================================== */
+    .footer {
+      border-top: 1px solid var(--border-color);
+      padding: 4rem 0 2rem;
+      background: rgba(5, 8, 14, 0.9);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 3rem;
+      margin-bottom: 3rem;
+    }
+
+    .footer-bottom {
+      text-align: center;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    /* Responsive Breakdown */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .calculator-layout { grid-template-columns: 1fr; }
+      .submission-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       1. HEADER & NAVIGATION
+       ========================================================================== -->
+  <header class="header">
+    <div class="container header-inner">
+      <!-- EDIT: Change club name or logo icon text if needed -->
+      <a href="#" class="logo">
+        <div class="logo-icon">3D</div>
+        <span>CBSS 3D Printing Club</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#about" class="nav-link">About</a></li>
+          <li><a href="#calculator" class="nav-link">Request Print</a></li>
+          <li><a href="#gallery" class="nav-link">Showcase</a></li>
+          <li><a href="#guides" class="nav-link">Guides</a></li>
+          <li><a href="#join" class="btn btn-primary" style="padding: 0.5rem 1.2rem; font-size: 0.85rem;">Join Club</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ==========================================================================
+         2. HERO SECTION
+         ========================================================================== -->
+    <section class="hero container" id="hero">
+      <div class="hero-content">
+        <!-- EDIT: Club Tagline & Announcement Badge -->
+        <div class="hero-tag">
+          <span class="badge badge-orange">Dr. Charles Best Secondary 3D Printing Club</span>
+        </div>
+
+        <!-- EDIT: Main Catchy Headline -->
+        <h1 class="hero-title">
+          Powering Imagination, one layer at a time.
+        </h1>
+
+        <!-- EDIT: Brief Intro Description -->
+        <p class="hero-description">
+          The official 3D printing and additive manufacturing lab at CBSS. We empower students to learn CAD design, prototype ideas, and operate professional 3D printers.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#calculator" class="btn btn-primary">Request a Print</a>
+        </div>
+
+        <!-- EDIT: Fill in your actual club statistics below -->
+        <div class="hero-stats">
+          <div>
+            <div class="stat-number">4+</div>
+            <div class="stat-label">Active Printers</div>
+          </div>
+          <div>
+            <div class="stat-number">250+</div>
+            <div class="stat-label">Prints Completed</div>
+          </div>
+          <div>
+            <div class="stat-number">30+</div>
+            <div class="stat-label">Club Members</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3D Stage / Hero Interactive Feature Preview -->
+      <div class="hero-preview">
+        <div class="hero-canvas-placeholder">
+          <div class="cube-wireframe"></div>
+          <p style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-cyan);">
+            [ Interactive 3D Model Stage ]
+          </p>
+          <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem;">
+            <!-- EDIT: Note about STL model viewer or featured print demo -->
+            Drag to rotate • Scroll to zoom
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         3. ABOUT & CLUB INFORMATION
+         ========================================================================== -->
+    <section class="section container" id="about">
+      <span class="badge badge-cyan">About Us</span>
+      <h2 class="section-title">CBSS 3D Printing Club</h2>
+      <p class="section-subtitle">
+        Whether you need a custom part for your projects, an artistic piece, or want to learn general 3D printing and Modelling, our club provides tools and mentorship!
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+        <div class="card">
+          <h3 style="margin-bottom: 0.5rem; color: var(--accent-orange);">Location</h3>
+          <!-- EDIT: Fill in exact room number at Dr. Charles Best -->
+          <p style="color: var(--text-muted);">Drafting Room (Room 113)</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom: 0.5rem; color: var(--accent-cyan);">Club Times</h3>
+          <!-- EDIT: Fill in exact days and times -->
+          <p style="color: var(--text-muted);">Every Tuesday 3:30 - 4:30 PM</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom: 0.5rem; color: var(--accent-orange);">⚡ Supported Materials</h3>
+          <!-- EDIT: Fill in materials your printers support -->
+          <p style="color: var(--text-muted);">PLA, PETG, TPU (Flexible)</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ==========================================================================
+         5. PRINT REQUEST CALCULATOR & FORM
+         ========================================================================== -->
+    <section class="section container" id="calculator">
+      <h2 class="section-title">Request a 3D Print</h2>
+      <p class="section-subtitle">Use our cost estimator below to calculate filament weight, print time, and submit your 3D design file (.STL / .OBJ).</p>
+
+      <div class="calculator-layout">
+        <form class="card" id="printForm" onsubmit="event.preventDefault(); alert('Print request recorded! Please bring your file to Room 112 or email the club advisor.');">
+          <h3 style="margin-bottom: 1.5rem;">Print Parameters & Contact</h3>
+
+          <!-- EDIT: Student Name & Email -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-input" placeholder="e.g. Alex Smith" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">School Email</label>
+              <input type="email" class="form-input" placeholder="student@sd43.bc.ca" required>
+            </div>
+          </div>
+
+          <!-- Material Selection -->
+          <div class="form-group">
+            <label class="form-label">Filament Material</label>
+            <select class="form-select" id="materialSelect" onchange="updateEstimates()">
+              <option value="PLA">PLA (Standard - Recommended for general prints)</option>
+              <option value="PETG">PETG (Durable & Heat Resistant)</option>
+              <option value="TPU">TPU (Flexible / Rubber-like)</option>
+            </select>
+          </div>
+
+          <!-- Infill Density Slider -->
+          <div class="form-group">
+            <label class="form-label">Infill Percentage -- More infill = more durability/weight. 10% is a good balance: <span id="infillVal" style="color: var(--accent-orange); font-family: var(--font-mono);">15%</span></label>
+            <div class="range-slider">
+              <input type="range" id="infillRange" min="10" max="100" value="15" step="5" oninput="document.getElementById('infillVal').textContent = this.value + '%'; updateEstimates();">
+            </div>
+          </div>
+
+          <!-- File upload indicator placeholder -->
+          <div class="form-group">
+            <label class="form-label">Model File (.STL / .OBJ / .3MF)</label>
+            <input type="file" class="form-input" accept=".stl,.obj,.3mf">
+          </div>
+
+          <!-- Project Notes -->
+          <div class="form-group">
+            <label class="form-label">Additional Notes:</label>
+            <textarea class="form-textarea" rows="3" placeholder="Specify color preference, layer height, or deadline if needed..."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Print Request</button>
+        </form>
+
+        <!-- Dynamic Cost / Time Telemetry Card -->
+        <div class="card estimate-card">
+          <h3 style="margin-bottom: 1.5rem; color: var(--accent-orange);">Estimated Specs</h3>
+          
+          <div class="estimate-row">
+            <span>Estimated Weight</span>
+            <span class="estimate-value" id="estWeight">35 grams</span>
+          </div>
+
+          <div class="estimate-row">
+            <span>Estimated Print Time</span>
+            <span class="estimate-value" id="estTime">2 hrs 15 mins</span>
+          </div>
+
+          <div class="estimate-row">
+            <span>Material Cost</span>
+            <!-- EDIT: Note whether prints are free or charged per gram -->
+            <span class="estimate-value" id="estCost">$1.75 CAD</span>
+          </div>
+
+          <div style="margin-top: 2rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--text-muted);">
+            💡 <strong>Club Policy Note:</strong> School project prints are prioritized. Please allow 1-3 school days for print completion.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         6. SHOWCASE GALLERY
+         ========================================================================== -->
+    <section class="section container" id="gallery">
+      <span class="badge badge-orange">Student Work</span>
+      <h2 class="section-title">Featured Student Prints</h2>
+      <p class="section-subtitle">Explore some of the incredible projects designed and printed by CBSS students.</p>
+
+      <div class="gallery-grid">
+        <!-- EDIT: Project Card 1 -->
+        <div class="card">
+          <div class="gallery-image-container">
+            [ Project Photo / 3D Model Image ]
+          </div>
+          <div class="gallery-title">Scuba Benchy</div>
+          <div class="gallery-author">Designed by Robotics Team • Grade 11</div>
+          <div class="gallery-meta">
+            <span class="badge badge-cyan">PETG</span>
+            <span class="badge badge-orange">0.16mm Layer</span>
+          </div>
+        </div>
+
+        <!-- EDIT: Project Card 2 -->
+        <div class="card">
+          <div class="gallery-image-container">
+            [ Project Photo / 3D Model Image ]
+          </div>
+          <div class="gallery-title">Low-Poly Dragon Sculpture</div>
+          <div class="gallery-author">Printed by Maya L. • Grade 10</div>
+          <div class="gallery-meta">
+            <span class="badge badge-cyan">Silk PLA</span>
+            <span class="badge badge-orange">4 hrs Print</span>
+          </div>
+        </div>
+
+        <!-- EDIT: Project Card 3 -->
+        <div class="card">
+          <div class="gallery-image-container">
+            [ Project Photo / 3D Model Image ]
+          </div>
+          <div class="gallery-title">Custom Smartphone Stand</div>
+          <div class="gallery-author">Designed by Jordan K. • Grade 9</div>
+          <div class="gallery-meta">
+            <span class="badge badge-cyan">PLA Black</span>
+            <span class="badge badge-orange">15% Infill</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="submission-grid">
+        <div class="card">
+          <h3 style="margin-bottom: 0.75rem; color: var(--accent-cyan);">Submit Your Project</h3>
+          <p class="submission-note">Share a photo, model idea, or finished print with the club. Featured submissions may be highlighted in the showcase gallery and shared at club meetings.</p>
+
+          <form onsubmit="event.preventDefault(); alert('Thanks for submitting your project! Your showcase entry has been received.');">
+            <div style="display: grid; gap: 1rem;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                  <label class="form-label">Your Name</label>
+                  <input type="text" class="form-input" placeholder="Alex Smith" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Project Title</label>
+                  <input type="text" class="form-input" placeholder="Custom Desk Organizer" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Materials / Print Details</label>
+                <input type="text" class="form-input" placeholder="PLA, 15% infill, 4 hr print">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Short Description</label>
+                <textarea class="form-textarea" rows="3" placeholder="Tell us what you designed or learned..."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Upload Image / Photo</label>
+                <input type="file" class="form-input" accept="image/*">
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%;">Submit to Gallery</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" style="background: rgba(0, 0, 0, 0.2);">
+          <h3 style="margin-bottom: 0.75rem; color: var(--accent-orange);">What to Include</h3>
+          <ul style="color: var(--text-muted); padding-left: 1.1rem; display: grid; gap: 0.6rem;">
+            <li>A clear photo of your printed model or design.</li>
+            <li>Your name, grade, and a short description.</li>
+            <li>Materials or settings you used if you want to share them.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         7. GUIDES & RESOURCES
+         ========================================================================== -->
+    <section class="section container" id="guides">
+      <span class="badge badge-cyan">Learning Center</span>
+      <h2 class="section-title">CAD & Slicing Guides</h2>
+      <p class="section-subtitle">New to 3D design? Here are the best free software tools and guides to get started.</p>
+
+      <div class="guides-grid">
+        <!-- Guide 1: Tinkercad -->
+        <div class="card">
+          <div class="guide-icon">🧊</div>
+          <h3 style="margin-bottom: 0.5rem;">Beginner: Tinkercad</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+            Free browser-based 3D design software. Perfect for beginners learning basic geometric shapes and combining forms.
+          </p>
+          <a href="https://www.tinkercad.com/" target="_blank" class="nav-link" style="color: var(--accent-cyan); font-weight: 600;">Launch Tinkercad ↗</a>
+        </div>
+
+        <!-- Guide 2: Fusion 360 -->
+        <div class="card">
+          <div class="guide-icon">⚙️</div>
+          <h3 style="margin-bottom: 0.5rem;">Advanced: Fusion 360</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+            Professional parametric CAD software free for students. Great for mechanical parts, gears, and precise engineering.
+          </p>
+          <a href="https://www.autodesk.com/products/fusion-360/personal" target="_blank" class="nav-link" style="color: var(--accent-cyan); font-weight: 600;">Get Educational License ↗</a>
+        </div>
+
+        <!-- Guide 3: OrcaSlicer / Cura -->
+        <div class="card">
+          <div class="guide-icon">🔪</div>
+          <h3 style="margin-bottom: 0.5rem;">Slicing: OrcaSlicer / Cura</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+            Learn how to turn 3D models into G-code for our lab printers, setup supports, layer heights, and infill patterns.
+          </p>
+          <a href="#" class="nav-link" style="color: var(--accent-orange); font-weight: 600;">Download CBSS Slicer Presets</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         8. JOIN CLUB SECTION
+         ========================================================================== -->
+    <section class="section container" id="join">
+      <div class="card" style="background: linear-gradient(135deg, rgba(255, 107, 0, 0.12), rgba(0, 229, 255, 0.08)); border: 1px solid rgba(255, 107, 0, 0.4); text-align: center; padding: 4rem 2rem;">
+        <span class="badge badge-orange" style="margin-bottom: 1rem;">Enrollment Open</span>
+        <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem;">Join CBSS 3D Printing Club</h2>
+        <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto 2rem; font-size: 1.1rem;">
+          No prior experience needed! Learn 3D modeling, operate modern 3D printers, and bring your creative ideas to reality.
+        </p>
+
+        <form style="max-width: 450px; margin: 0 auto; display: flex; gap: 0.75rem;" onsubmit="event.preventDefault(); alert('Thanks for registering! See you at our next meeting in Room 112.');">
+          <input type="email" class="form-input" placeholder="Enter your school email..." required>
+          <button type="submit" class="btn btn-primary" style="white-space: nowrap;">Join Now</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==========================================================================
+       9. FOOTER
+       ========================================================================== -->
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="logo" style="margin-bottom: 1rem;">
+          <div class="logo-icon">3D</div>
+          <span>CBSS 3D Printing Club</span>
+        </div>
+        <!-- EDIT: School address or club advisor details -->
+        <p style="color: var(--text-muted); max-width: 320px;">
+          Dr. Charles Best Secondary School<br>
+          Additive Manufacturing & Student Prototyping Lab
+        </p>
+      </div>
+
+      <div>
+        <h4 style="color: var(--text-main); margin-bottom: 1rem;">Quick Links</h4>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem;">
+          <li><a href="#about" class="nav-link">About Lab</a></li>
+          <li><a href="#calculator" class="nav-link">Request Print</a></li>
+          <li><a href="#gallery" class="nav-link">Student Showcase</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 style="color: var(--text-main); margin-bottom: 1rem;">Club Hours</h4>
+        <p>Tuesday: 3:15 - 4:30 PM</p>
+        <p>Thursday: 3:15 - 4:30 PM</p>
+        <p style="margin-top: 0.5rem; color: var(--accent-cyan);">Location: Room 112</p>
+      </div>
+    </div>
+
+    <div class="container footer-bottom">
+      <p>© <span id="year"></span> CBSS 3D Printing Club • Dr. Charles Best Secondary School</p>
+    </div>
+  </footer>
+
+  <!-- Simple Interactive Helper JS -->
+  <script>
+    // Set Current Year in Footer
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Dynamic Estimate Calculation Preview
+    function updateEstimates() {
+      const infill = parseInt(document.getElementById('infillRange').value);
+      const material = document.getElementById('materialSelect').value;
+
+      let baseWeight = 25;
+      let weight = Math.round(baseWeight + (infill * 0.4));
+      
+      let baseHours = 1.5;
+      let hours = (baseHours + (infill * 0.025)).toFixed(1);
+      
+      let costPerGram = material === 'TPU' ? 0.07 : (material === 'PETG' ? 0.06 : 0.05);
+      let totalCost = (weight * costPerGram).toFixed(2);
+
+      document.getElementById('estWeight').textContent = weight + " grams";
+      document.getElementById('estTime').textContent = hours + " hrs";
+      document.getElementById('estCost').textContent = "$" + totalCost + " CAD";
+    }
+  </script>
+</body>
+</html>
