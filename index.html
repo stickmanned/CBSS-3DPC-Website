@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CBSS 3D Printing Club | Dr. Charles Best Secondary</title>
-  <meta name="description" content="Official website for the CBSS 3D Printing Club at Dr. Charles Best Secondary School. Learn 3D design, request prints, and explore additive manufacturing.">
+  <meta name="description" content="The  official website for the Dr. Charles Best Secondary School (CBSS) 3D Printing Club.">
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -565,29 +565,12 @@
 
         <!-- EDIT: Brief Intro Description -->
         <p class="hero-description">
-          The official 3D printing and additive manufacturing lab at CBSS. We empower students to learn CAD design, prototype ideas, and operate professional 3D printers.
+          The official website for the Dr. Charles Best Secondary School (CBSS) 3D Printing Club.
         </p>
 
         <div class="hero-actions">
           <a href="#calculator" class="btn btn-primary">Request a Print</a>
         </div>
-
-        <!-- EDIT: Fill in your actual club statistics below -->
-        <div class="hero-stats">
-          <div>
-            <div class="stat-number">4+</div>
-            <div class="stat-label">Active Printers</div>
-          </div>
-          <div>
-            <div class="stat-number">250+</div>
-            <div class="stat-label">Prints Completed</div>
-          </div>
-          <div>
-            <div class="stat-number">30+</div>
-            <div class="stat-label">Club Members</div>
-          </div>
-        </div>
-      </div>
 
       <!-- 3D Stage / Hero Interactive Feature Preview -->
       <div class="hero-preview">
@@ -628,7 +611,7 @@
         <div class="card">
           <h3 style="margin-bottom: 0.5rem; color: var(--accent-orange);">⚡ Supported Materials</h3>
           <!-- EDIT: Fill in materials your printers support -->
-          <p style="color: var(--text-muted);">PLA, PETG, TPU (Flexible)</p>
+          <p style="color: var(--text-muted);">PLA, PETG</p>
         </div>
       </div>
     </section>
@@ -639,10 +622,10 @@
          ========================================================================== -->
     <section class="section container" id="calculator">
       <h2 class="section-title">Request a 3D Print</h2>
-      <p class="section-subtitle">Use our cost estimator below to calculate filament weight, print time, and submit your 3D design file (.STL / .OBJ).</p>
+      <p class="section-subtitle">Submit your 3D design file (.STL / .OBJ). We will send a quote to your email with the price shortly.</p>
 
       <div class="calculator-layout">
-        <form class="card" id="printForm" onsubmit="event.preventDefault(); alert('Print request recorded! Please bring your file to Room 112 or email the club advisor.');">
+        <form class="card" id="printForm" onsubmit="event.preventDefault(); alert('Print request submitted! Your file will be sent to the club queue and prepared for slicing.');">
           <h3 style="margin-bottom: 1.5rem;">Print Parameters & Contact</h3>
 
           <!-- EDIT: Student Name & Email -->
@@ -660,10 +643,9 @@
           <!-- Material Selection -->
           <div class="form-group">
             <label class="form-label">Filament Material</label>
-            <select class="form-select" id="materialSelect" onchange="updateEstimates()">
+            <select class="form-select" id="materialSelect">
               <option value="PLA">PLA (Standard - Recommended for general prints)</option>
               <option value="PETG">PETG (Durable & Heat Resistant)</option>
-              <option value="TPU">TPU (Flexible / Rubber-like)</option>
             </select>
           </div>
 
@@ -671,7 +653,7 @@
           <div class="form-group">
             <label class="form-label">Infill Percentage -- More infill = more durability/weight. 10% is a good balance: <span id="infillVal" style="color: var(--accent-orange); font-family: var(--font-mono);">15%</span></label>
             <div class="range-slider">
-              <input type="range" id="infillRange" min="10" max="100" value="15" step="5" oninput="document.getElementById('infillVal').textContent = this.value + '%'; updateEstimates();">
+              <input type="range" id="infillRange" min="10" max="100" value="15" step="5" oninput="document.getElementById('infillVal').textContent = this.value + '%'">
             </div>
           </div>
 
@@ -690,30 +672,6 @@
           <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Print Request</button>
         </form>
 
-        <!-- Dynamic Cost / Time Telemetry Card -->
-        <div class="card estimate-card">
-          <h3 style="margin-bottom: 1.5rem; color: var(--accent-orange);">Estimated Specs</h3>
-          
-          <div class="estimate-row">
-            <span>Estimated Weight</span>
-            <span class="estimate-value" id="estWeight">35 grams</span>
-          </div>
-
-          <div class="estimate-row">
-            <span>Estimated Print Time</span>
-            <span class="estimate-value" id="estTime">2 hrs 15 mins</span>
-          </div>
-
-          <div class="estimate-row">
-            <span>Material Cost</span>
-            <!-- EDIT: Note whether prints are free or charged per gram -->
-            <span class="estimate-value" id="estCost">$1.75 CAD</span>
-          </div>
-
-          <div style="margin-top: 2rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--text-muted);">
-            💡 <strong>Club Policy Note:</strong> School project prints are prioritized. Please allow 1-3 school days for print completion.
-          </div>
-        </div>
       </div>
     </section>
 
@@ -818,9 +776,8 @@
          7. GUIDES & RESOURCES
          ========================================================================== -->
     <section class="section container" id="guides">
-      <span class="badge badge-cyan">Learning Center</span>
-      <h2 class="section-title">CAD & Slicing Guides</h2>
-      <p class="section-subtitle">New to 3D design? Here are the best free software tools and guides to get started.</p>
+      <h2 class="section-title">Learning Centre</h2>
+      <p class="section-subtitle">New to 3D design? Want to 3D print? Here are some free courses to help you get started.</p>
 
       <div class="guides-grid">
         <!-- Guide 1: Tinkercad -->
@@ -866,7 +823,7 @@
           No prior experience needed! Learn 3D modeling, operate modern 3D printers, and bring your creative ideas to reality.
         </p>
 
-        <form style="max-width: 450px; margin: 0 auto; display: flex; gap: 0.75rem;" onsubmit="event.preventDefault(); alert('Thanks for registering! See you at our next meeting in Room 112.');">
+        <form style="max-width: 450px; margin: 0 auto; display: flex; gap: 0.75rem;" onsubmit="event.preventDefault(); alert('Thanks for registering! See you at our next meeting in Room 113 (Drafting Room).');">
           <input type="email" class="form-input" placeholder="Enter your school email..." required>
           <button type="submit" class="btn btn-primary" style="white-space: nowrap;">Join Now</button>
         </form>
@@ -904,7 +861,7 @@
         <h4 style="color: var(--text-main); margin-bottom: 1rem;">Club Hours</h4>
         <p>Tuesday: 3:15 - 4:30 PM</p>
         <p>Thursday: 3:15 - 4:30 PM</p>
-        <p style="margin-top: 0.5rem; color: var(--accent-cyan);">Location: Room 112</p>
+        <p style="margin-top: 0.5rem; color: var(--accent-cyan);">Location: Room 113</p>
       </div>
     </div>
 
@@ -917,25 +874,6 @@
   <script>
     // Set Current Year in Footer
     document.getElementById('year').textContent = new Date().getFullYear();
-
-    // Dynamic Estimate Calculation Preview
-    function updateEstimates() {
-      const infill = parseInt(document.getElementById('infillRange').value);
-      const material = document.getElementById('materialSelect').value;
-
-      let baseWeight = 25;
-      let weight = Math.round(baseWeight + (infill * 0.4));
-      
-      let baseHours = 1.5;
-      let hours = (baseHours + (infill * 0.025)).toFixed(1);
-      
-      let costPerGram = material === 'TPU' ? 0.07 : (material === 'PETG' ? 0.06 : 0.05);
-      let totalCost = (weight * costPerGram).toFixed(2);
-
-      document.getElementById('estWeight').textContent = weight + " grams";
-      document.getElementById('estTime').textContent = hours + " hrs";
-      document.getElementById('estCost').textContent = "$" + totalCost + " CAD";
-    }
   </script>
 </body>
 </html>
