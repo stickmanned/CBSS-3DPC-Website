@@ -8,18 +8,27 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: `${club.name} — ${club.room}`,
-    template: `%s — ${club.short}`,
+    default: `${club.name} | ${club.school}`,
+    template: `%s | ${club.name}`,
   },
-  description: `One printer, ${club.room} at ${club.school}. Bring us a file and we'll print it, free, for any student.`,
+  description: `Explore student 3D printing at ${club.school}. Request a print or join the club ${club.meets.toLowerCase()} from ${club.time} in ${club.room}.`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+    >
       <body className="min-h-screen flex flex-col">
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <main id="main" className="flex-1">
+          {children}
+        </main>
         <SiteFooter />
       </body>
     </html>

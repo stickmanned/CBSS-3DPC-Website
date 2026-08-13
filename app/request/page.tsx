@@ -1,71 +1,82 @@
 import type { Metadata } from "next";
-import { club } from "../lib/content";
 import PageIntro from "../components/PageIntro";
 import RequestForm from "../components/RequestForm";
+import { club } from "../lib/content";
 
 export const metadata: Metadata = {
-  title: "Request a print",
-  description: `Any student at ${club.school} can send us a file. We print it free.`,
+  title: "Request a Print",
+  description: `Send a 3D print request to the ${club.name} and receive updates by email.`,
 };
+
+const steps = [
+  {
+    title: "Describe the project",
+    body: "Add your name, school email, number of copies, and what the object is for.",
+  },
+  {
+    title: "Open your email draft",
+    body: "The form creates a message addressed to the club.",
+  },
+  {
+    title: "Attach your model",
+    body: "Check that your model file is attached before you press Send.",
+  },
+  {
+    title: "Watch for our reply",
+    body: "We’ll contact you if we need more information or when there is an update.",
+  },
+];
 
 export default function Request() {
   return (
     <>
       <PageIntro
-        eyebrow="Request a print"
-        title="Send us a file."
-        lead="Any student, any class, any project — free. You need a model in .STL, .OBJ or .3MF. If you don't have one yet, the guides page will get you there."
+        eyebrow="Print request"
+        title="Tell us what you want to make."
+        lead="Share your project details and attach your 3D model. A club member will review the request and follow up by email."
       />
 
-      <div className="mx-auto max-w-5xl px-6 grid gap-12 lg:grid-cols-[1.4fr_1fr]">
-        <div>
+      <section className="bg-cloud px-5 py-20 md:py-28">
+        <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.2fr_.8fr] lg:items-start">
           <RequestForm />
+
+          <aside className="grid gap-5 lg:sticky lg:top-[calc(var(--header-height)+1.5rem)]">
+            <div className="build-grid-dark rounded-[var(--radius-card)] bg-navy p-7 text-white sm:p-9">
+              <p className="eyebrow text-signal">What happens next</p>
+              <h2 className="mt-4 text-4xl">From form to reply.</h2>
+
+              <ol className="mt-8 border-t border-white/20">
+                {steps.map((step, index) => (
+                  <li
+                    key={step.title}
+                    className="grid grid-cols-[2.5rem_1fr] gap-3 border-b border-white/15 py-5"
+                  >
+                    <span className="font-mono text-xs font-semibold text-signal">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <h3 className="text-xl text-white">{step.title}</h3>
+                      <p className="mt-2 text-[15px] text-white/70">{step.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="rounded-[var(--radius-card)] bg-signal p-7 text-ink sm:p-9">
+              <p className="eyebrow">A useful heads-up</p>
+              <h2 className="mt-4 text-3xl">Every model is different.</h2>
+              <p className="mt-4 text-ink/75">
+                Some requests may need clarification or changes before they are ready to
+                print. If something needs attention, we’ll explain it in our reply.
+              </p>
+              <p className="mt-6 border-t border-ink/20 pt-5 font-mono text-xs font-semibold uppercase tracking-[0.08em]">
+                Club contact · {club.contactEmail}
+              </p>
+            </div>
+          </aside>
         </div>
-
-        <aside className="lg:border-l lg:border-navy/15 lg:pl-10">
-          <h2 className="eyebrow">How it goes</h2>
-          <ol className="mt-4 space-y-5">
-            {[
-              [
-                "You send the file",
-                "Anything the slicer can open. If it's from Tinkercad, export as .STL.",
-              ],
-              [
-                "We check it",
-                "Mostly we're looking for whether it needs supports, and whether it fits on the bed.",
-              ],
-              [
-                "It goes in the queue",
-                "Small things get done the same week. Anything over about six hours waits for a day nobody else needs the machine.",
-              ],
-              [
-                "You collect it",
-                `${club.room}, on a meeting day. We'll email you when it's off the bed.`,
-              ],
-            ].map(([t, d], i) => (
-              <li key={t} className="grid grid-cols-[2rem_1fr] gap-3">
-                <span className="data text-silver">{String(i + 1).padStart(2, "0")}</span>
-                <div>
-                  <p className="font-display font-bold text-navy">{t}</p>
-                  <p className="text-[15px] mt-0.5">{d}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-
-          <div className="mt-8 border-t border-navy/15 pt-5">
-            <h2 className="eyebrow">Sometimes it fails</h2>
-            <p className="text-[15px] mt-2">
-              About a quarter of prints don&rsquo;t work the first time. We reprint,
-              you&rsquo;re not charged, and it goes in{" "}
-              <a href="/log" className="text-navy underline underline-offset-2">
-                the log
-              </a>{" "}
-              so the next person doesn&rsquo;t hit the same thing.
-            </p>
-          </div>
-        </aside>
-      </div>
+      </section>
     </>
   );
 }

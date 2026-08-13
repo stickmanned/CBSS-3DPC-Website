@@ -2,81 +2,71 @@
 
 Website for the Dr. Charles Best Secondary (SD43) 3D Printing Club.
 
-Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4.
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4.
 
-## Running it
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open http://localhost:3000.
+Then open the local URL shown in the terminal.
 
-## Where things are
+## Project map
 
-```
+```text
 app/
-  lib/content.ts        ← EDIT THIS. Club details, the Log, gallery, guides.
-  globals.css           ← design tokens (colours, fonts)
-  components/           ← shared UI
-  page.tsx              ← home
-  about|request|gallery|guides|log/page.tsx
+  lib/content.ts        club details, contacts, gallery, and learning links
+  globals.css           design tokens and the layer-build visual system
+  components/           shared navigation, footer, buttons, form, and hero stage
+  page.tsx              homepage
+  about/page.tsx        club overview and joining information
+  request/page.tsx      email-based print request flow
+  gallery/page.tsx      student work
+  guides/page.tsx       3D-design learning path
 public/img/
-  logo.png              ← club mark, background removed
-  logo-source.png       ← the original render, untouched
-  student-works/        ← photos of prints
-legacy/index.html       ← the old single-file site, kept for reference
+  logo.png              club mark used by the site
+  logo-source.png       original source render
+  student-works/        real project photography
+.planning/
+  design-config.md      visual direction, content rules, and acceptance checks
+docs/
+  design-research.md    source-linked design research behind the redesign
+legacy/index.html       previous single-file site, retained for reference
 ```
 
-**Almost everything you'll want to change is in `app/lib/content.ts`.** Meeting
-times, the room, the advisor's email, the Log, the gallery, the guides — all of
-it is plain data in that one file. You shouldn't need to touch a component to
-update the club's details.
+The changing club facts live in `app/lib/content.ts`: meeting details, contact
+addresses, navigation, student work, and learning links. Update that file first
+when information changes.
 
-## Adding a print to the Log
+## Add student work
 
-The Log is the heart of this site. Every print goes in it, including the ones
-that fail — the failure notes are institutional memory for members who haven't
-joined yet.
-
-Open `app/lib/content.ts` and add an entry to `log`:
-
-```ts
-{
-  date: "2026-03-11",
-  title: "Gearbox housing",
-  who: "Priya",
-  material: "PETG",
-  colour: "BLACK",
-  duration: "5h 40m",
-  ok: false,
-  note: "Layer shift about 40mm up. Belt was loose. Retensioned and reprinted.",
-}
-```
-
-## Adding to the gallery
-
-1. Put the photo in `public/img/student-works/`. Take it on a phone, in the lab,
-   in someone's hand — don't stage it.
+1. Put the image in `public/img/student-works/`.
 2. Add an entry to `gallery` in `app/lib/content.ts`.
+3. Use `printedBy` unless the student also designed the model.
+4. Describe one specific detail from the process. Do not invent outcomes or
+   authorship.
 
-## Design
+## Request flow
 
-Navy `#213366` and silver are sampled from the club's printed logo. Yellow
-`#E8B613` marks anything you can act on, and nothing else. Everything else is
-greyscale on purpose — the remaining colour on this site comes from photographs
-of real prints.
+The request form currently composes an email to the student club contact. It
+does not upload a file or write to a database. The requester attaches their 3D
+model in the email draft before sending it.
 
-Type is Bricolage Grotesque (headings), Source Serif 4 (body), Martian Mono
-(dates, materials, durations).
+## Design system
 
-The full component library lives in Claude Design under **CBSS 3DPC**.
+The site uses a “Precision in Motion” direction based on additive manufacturing:
+deep navy and ink, warm white surfaces, signal yellow for actions, measured
+grids, and one layer-build interaction in the homepage hero. Geist Sans carries
+display/body copy and Geist Mono carries technical labels.
+
+See `.planning/design-config.md` before changing the visual language.
 
 ## Still to do
 
-- [ ] Fill in the real printer make/model and advisor email in `content.ts`
-- [ ] Replace the placeholder Log entries with real prints
-- [ ] Wire the request form to a database (currently composes an email)
-- [ ] Admin page for the print queue
-- [ ] Deploy to Vercel
+- Add more real project, room, and process photography.
+- Replace the email handoff with a real request backend if the club needs a
+  managed queue.
+- Add an admin workflow only after the request backend is defined.
+- Deploy and verify the production domain.

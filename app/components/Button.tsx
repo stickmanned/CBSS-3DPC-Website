@@ -1,15 +1,17 @@
 import Link from "next/link";
 
-type Variant = "primary" | "secondary" | "signal";
+type Variant = "primary" | "secondary" | "light" | "dark";
 
 const base =
-  "inline-flex items-center gap-2.5 font-display font-bold text-[15px] tracking-tight px-5 py-3 border-[1.5px] transition-colors active:translate-y-px";
+  "inline-flex min-h-12 items-center justify-center gap-2.5 rounded-[var(--radius-pill)] px-6 py-3 font-display text-[15px] font-bold tracking-[-0.01em] transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.98]";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-navy text-paper border-navy hover:bg-ink hover:border-ink",
+  primary: "border border-signal bg-signal text-ink hover:border-white hover:bg-white",
   secondary:
-    "bg-transparent text-navy border-navy hover:bg-signal hover:border-signal hover:text-ink",
-  signal: "bg-signal text-ink border-signal hover:bg-navy hover:border-navy hover:text-paper",
+    "border border-navy/20 bg-transparent text-navy hover:border-navy hover:bg-navy hover:text-white",
+  light:
+    "border border-white/30 bg-transparent text-white hover:border-white hover:bg-white hover:text-ink",
+  dark: "border border-ink bg-ink text-white hover:border-navy hover:bg-navy",
 };
 
 export default function Button({
