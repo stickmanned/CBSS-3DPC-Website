@@ -1,0 +1,17 @@
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": [
+      "Content-Type",
+      "Cache-Control",
+      "x-amz-meta-upload-nonce",
+      "x-amz-meta-declared-size",
+      "x-amz-meta-file-format"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]

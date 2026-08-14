@@ -115,7 +115,7 @@ export default function SiteHeader() {
           <nav aria-label="Main navigation" className="hidden lg:block">
             <ul className="flex items-center gap-1">
               {nav.map((item) => {
-                const active = pathname === item.href;
+                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <li key={item.href}>
                     <Link
@@ -139,7 +139,7 @@ export default function SiteHeader() {
 
           <Link
             href="/request"
-            aria-current={pathname === "/request" ? "page" : undefined}
+            aria-current={pathname === "/request" || pathname.startsWith("/request/") ? "page" : undefined}
             className="btn btn--primary btn--sm orbit"
             onClick={() => setMenuOpen(false)}
             {...orbit}
@@ -151,7 +151,7 @@ export default function SiteHeader() {
 
           <button
             type="button"
-            className="icon-button orbit size-11 border border-mist text-ink hover:border-navy hover:bg-cloud lg:hidden"
+            className="icon-button orbit grid size-11 border border-mist text-ink hover:border-navy hover:bg-cloud lg:hidden"
             {...orbit}
             aria-expanded={menuOpen}
             aria-controls="mobile-navigation"
@@ -190,7 +190,9 @@ export default function SiteHeader() {
               <li key={item.href} className="border-b border-mist">
                 <Link
                   href={item.href}
-                  aria-current={pathname === item.href ? "page" : undefined}
+                  aria-current={
+                    pathname === item.href || pathname.startsWith(`${item.href}/`) ? "page" : undefined
+                  }
                   className="menu-row flex min-h-14 items-center justify-between rounded-lg font-display text-lg font-bold text-ink hover:text-navy"
                   onClick={() => setMenuOpen(false)}
                 >

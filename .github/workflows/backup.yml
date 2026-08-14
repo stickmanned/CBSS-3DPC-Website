@@ -1,0 +1,58 @@
+name: Neon database backup
+
+on:
+  schedule:
+    - cron: "17 10 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Create private database backup
+    # Never create a plaintext PII artifact in a public repository. This guard
+    # is evaluated by GitHub before secrets or a runner are used.
+    if: github.event.repository.private == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PGDATABASE: ${{ secrets.NEON_DATABASE_URL }}
+
+    steps:
+      - name: Confirm backup secret exists
+        shell: bash
+        run: test -n "$PGDATABASE"
+
+      - name: Create custom-format dump
+        shell: bash
+        run: >-
+          docker run --rm
+          --env PGDATABASE
+          --volume "$RUNNER_TEMP:/backup"
+          postgres:18-alpine
+          pg_dump
+          --format=custom
+          --no-owner
+          --no-privileges
+          --file=/backup/cbss-print-queue.dump
+
+      - name: Create checksum
+        working-directory: ${{ runner.temp }}
+        shell: bash
+        run: sha256sum cbss-print-queue.dump > cbss-print-queue.dump.sha256
+
+      - name: Store private backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cbss-print-queue-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/cbss-print-queue.dump
+            ${{ runner.temp }}/cbss-print-queue.dump.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

@@ -3,7 +3,7 @@ import Link from "next/link";
 import Button from "./components/Button";
 import LayerStage from "./components/LayerStage";
 import ScrollReveal from "./components/ScrollReveal";
-import { club, gallery, meetingFacts } from "./lib/content";
+import { gallery, meetingFacts } from "./lib/content";
 
 const process = [
   {
@@ -136,7 +136,7 @@ export default function Home() {
       <section className="bg-cloud py-24 md:py-32">
         <div className="mx-auto max-w-6xl px-5">
           <ScrollReveal>
-            <p className="eyebrow text-slate">What's next?</p>
+            <p className="eyebrow text-slate">What&apos;s next?</p>
             <h2 className="mt-5 max-w-[11ch] text-5xl text-ink sm:text-6xl md:text-7xl">
               Join our club and community.
             </h2>

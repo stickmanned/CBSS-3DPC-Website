@@ -45,7 +45,9 @@ The homepage build stage is the one memorable interaction: the club mark assembl
 - Be concise, concrete, and warm.
 - Say what visitors can do and what happens next.
 - Use verified facts: Tuesdays, 3:30–4:30 PM, Room 113 Drafting, student contact `080-wwen@sd43.bc.ca`, sponsor Mr. Anania at `danania@sd43.bc.ca`.
-- Do not claim free printing, a turnaround time, supported formats/materials, a printer count/model, a founding year, or specific failure rates.
+- The request system supports PLA, PETG, and ASA preferences and accepts STL or 3MF files up to 50 MB. Treat colors as preferences until the club reviews current stock.
+- Do not claim free printing, a turnaround time, a printer count/model, a founding year, or specific failure rates.
+- Status pages and email templates must never introduce a promised completion date or duration.
 
 ## Acceptance checks
 

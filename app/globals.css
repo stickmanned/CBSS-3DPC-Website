@@ -654,7 +654,6 @@ button {
 
 /* Icon-only controls (menu toggle) need the same press answer. */
 .icon-button {
-  display: inline-grid;
   place-items: center;
   border-radius: 999px;
   cursor: pointer;
@@ -1298,6 +1297,12 @@ button {
   box-shadow: 0 0 0 3.5px rgb(33 51 102 / 0.14);
 }
 
+.field:focus-visible {
+  outline: 2.5px solid var(--color-signal);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4.5px rgb(18 23 43 / 0.85);
+}
+
 /* Only after the user has actually entered something wrong — :user-invalid
    does not fire on untouched required fields the way :invalid does. */
 .field:user-invalid {
@@ -1307,6 +1312,13 @@ button {
 
 .field:user-invalid:focus {
   box-shadow: 0 0 0 3.5px rgb(194 69 59 / 0.16);
+}
+
+.field:user-invalid:focus-visible {
+  outline-color: var(--color-signal);
+  box-shadow:
+    0 0 0 4.5px rgb(18 23 43 / 0.85),
+    inset 0 0 0 1px #c2453b;
 }
 
 /* ---- Header elevation ---------------------------------------------------
