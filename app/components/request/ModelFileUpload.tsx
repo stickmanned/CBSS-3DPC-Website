@@ -130,7 +130,7 @@ export default function ModelFileUpload({
     }
     if (turnstileRequired && !turnstileToken) {
       setLocalError("Complete the security check below before uploading your model.");
-      document.getElementById("turnstile")?.scrollIntoView({ block: "center" });
+      document.getElementById("security-check")?.scrollIntoView({ block: "center" });
       return;
     }
 

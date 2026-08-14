@@ -27,6 +27,14 @@ declare global {
 
 const READY_CALLBACK = "onTurnstileApiReady";
 
+/**
+ * Deliberately not "turnstile". Browsers expose any element carrying an id as
+ * a global (window.<id>), so a wrapper with id="turnstile" shadows Cloudflare's
+ * own window.turnstile API object — the widget code then reads the <div> and
+ * throws "window.turnstile.render is not a function".
+ */
+const CONTAINER_ID = "security-check";
+
 export default function TurnstileField({
   siteKey,
   token,
@@ -86,7 +94,7 @@ export default function TurnstileField({
   }, [renderWidget]);
 
   return (
-    <div id="turnstile" className="rounded-xl border border-mist bg-cloud p-4">
+    <div id={CONTAINER_ID} className="rounded-xl border border-mist bg-cloud p-4">
       <Script
         src={`https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${READY_CALLBACK}`}
         strategy="afterInteractive"
