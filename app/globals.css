@@ -26,6 +26,43 @@
 
 :root {
   --header-height: 4.5rem;
+
+  /* ---- Motion system -------------------------------------------------
+     Interaction feel is timing, not decoration. Two rules govern it:
+
+     1. Press is fast, release is slow. A finger going down should get
+        an answer in under ~100ms; the spring back can take its time.
+     2. Depth compresses. Anything that lifts on hover must sink on
+        press, with its shadow collapsing to match.
+     -------------------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.42, 0.64, 1);
+  --ease-in-fast: cubic-bezier(0.3, 0, 0.1, 1);
+
+  --dur-press: 85ms;
+  --dur-release: 340ms;
+  --dur-hover: 220ms;
+
+  /* ---- Interaction state ramp ----------------------------------------
+     Dark surfaces used to get *darker* on hover and darker still on press,
+     which is why they read as flat black. The ramp runs the other way:
+     resting navy, brighter on hover, brighter again on press. Energy goes
+     up as you engage, and the signal glow carries the confirmation.
+     -------------------------------------------------------------------- */
+  --navy-rest: #213366;
+  --navy-hover: #31519c;
+  --navy-press: #3e63b8;
+
+  --signal-hover: #ffd75e;
+  --signal-press: #ffe08a;
+
+  /* Yellow bloom on press. Applied fast on :active and released slowly, so
+     letting go leaves a short afterglow rather than a hard cut. */
+  --glow-signal:
+    0 0 0 1.5px var(--color-signal),
+    0 0 0 5px rgb(255 201 60 / 0.26),
+    0 0 18px rgb(255 201 60 / 0.55),
+    0 0 40px rgb(255 201 60 / 0.3);
 }
 
 * {
@@ -94,25 +131,545 @@ button {
 }
 
 .text-link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
   color: var(--color-navy);
   font-family: var(--font-display);
   font-weight: 700;
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 0.28em;
+  transition: color 200ms var(--ease-out), transform var(--dur-release) var(--ease-spring);
 }
 
-.text-link:hover {
-  text-decoration-line: underline;
+/* Underline wipes in from the left rather than blinking on — the motion
+   tells you the link responded before the colour does. */
+.text-link::after {
+  position: absolute;
+  bottom: -0.28em;
+  left: 0;
+  height: 1.5px;
+  width: 100%;
+  background: currentColor;
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 320ms var(--ease-out);
+}
+
+.text-link:hover::after,
+.text-link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.text-link:active {
+  transform: scale(0.98);
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-in-fast);
+}
+
+.text-link > span[aria-hidden="true"] {
+  display: inline-block;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.text-link:hover > span[aria-hidden="true"],
+.text-link:focus-visible > span[aria-hidden="true"] {
+  transform: translateX(3px);
 }
 
 /* Visible on every surface: yellow inner ring, ink outer ring. */
 :where(a, button, input, select, textarea, summary):focus-visible {
-  outline: 3px solid var(--color-signal);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 5px var(--color-ink);
+  outline: 2.5px solid var(--color-signal);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4.5px rgb(18 23 43 / 0.85);
+}
+
+/* ---- Buttons ------------------------------------------------------------
+   The press is the whole point. Resting elevation gives the surface
+   something to travel through; hover lifts it and warms the shadow;
+   :active drops it *below* rest, collapses the shadow, and swaps the
+   transition to --dur-press so the sink is immediate. Release inherits the
+   slow spring again, which is what reads as "satisfying".
+   ------------------------------------------------------------------------ */
+/* The base sits in `@layer components` so a Tailwind utility passed through
+   `className` still wins — layer order decides that, not specificity, so
+   `:where()` would not have been enough. The unlayered state rules below
+   stay in charge of hover/press regardless. */
+@layer components {
+  .btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 3rem;
+    padding: 0.75rem 1.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    isolation: isolate;
+    user-select: none;
+    transition:
+      transform var(--dur-release) var(--ease-spring),
+      box-shadow var(--dur-release) var(--ease-out),
+      background-color var(--dur-hover) var(--ease-out),
+      border-color var(--dur-hover) var(--ease-out),
+      color var(--dur-hover) var(--ease-out);
+  }
+}
+
+.btn--lg {
+  min-height: 3.5rem;
+  padding: 1rem 2rem;
+  font-size: 1.0625rem;
+}
+
+.btn--sm {
+  min-height: 2.75rem;
+  padding: 0.5rem 1.15rem;
+  font-size: 14px;
+  gap: 0.35rem;
+}
+
+@media (min-width: 640px) {
+  .btn--sm {
+    padding-inline: 1.25rem;
+  }
+}
+
+/* The arrow leads the eye before the click and commits during it. */
+.btn > [aria-hidden="true"]:not(.spinner) {
+  display: inline-block;
+  transition: transform var(--dur-release) var(--ease-spring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn:hover > [aria-hidden="true"]:not(.spinner) {
+    transform: translateX(3px);
+  }
+}
+
+.btn:focus-visible > [aria-hidden="true"]:not(.spinner) {
+  transform: translateX(3px);
+}
+
+/* Press: fast, downward, shadow gone. Fires on touch too. */
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.975);
+  transition-duration: var(--dur-press), var(--dur-press), var(--dur-press),
+    var(--dur-press), var(--dur-press);
+  transition-timing-function: var(--ease-in-fast);
+}
+
+.btn:active:not(:disabled) > [aria-hidden="true"]:not(.spinner) {
+  transform: translateX(6px);
+  transition-duration: var(--dur-press);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spinner-rotate 640ms linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Variants. Each carries its own three-step elevation ramp because the
+   shadow has to be tinted for the surface it sits on. */
+.btn--primary {
+  background: var(--color-signal);
+  border-color: var(--color-signal);
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    0 1px 2px rgb(18 23 43 / 0.3),
+    0 4px 12px rgb(18 23 43 / 0.18);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Neutral elevation only. The yellow bloom that used to live here is what
+     made the glow read as a hover effect — it now belongs to the click. */
+  .btn--primary:hover {
+    background: var(--signal-hover);
+    border-color: var(--signal-hover);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.55),
+      0 2px 4px rgb(18 23 43 / 0.28),
+      0 12px 26px rgb(18 23 43 / 0.22);
+  }
+}
+
+/* The signal button is already yellow, so a yellow ring would disappear on
+   it — the press reads as an outward bloom from a brightening face instead. */
+.btn--primary:active:not(:disabled) {
+  background: var(--signal-press);
+  border-color: var(--color-signal);
+  box-shadow:
+    0 0 0 4px rgb(255 201 60 / 0.34),
+    0 0 20px rgb(255 201 60 / 0.7),
+    0 0 44px rgb(255 201 60 / 0.34);
+}
+
+.btn--secondary {
+  background: transparent;
+  border-color: rgb(33 51 102 / 0.22);
+  color: var(--color-navy);
+  box-shadow: 0 1px 2px rgb(18 23 43 / 0.06);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--secondary:hover {
+    background: var(--navy-hover);
+    border-color: var(--navy-hover);
+    color: #ffffff;
+    box-shadow:
+      0 2px 4px rgb(33 51 102 / 0.2),
+      0 12px 26px rgb(49 81 156 / 0.3);
+  }
+}
+
+.btn--secondary:active:not(:disabled) {
+  background: var(--navy-press);
+  border-color: var(--color-signal);
+  color: #ffffff;
+  box-shadow: var(--glow-signal);
+}
+
+.btn--light {
+  background: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.32);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--light:hover {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: var(--color-ink);
+    box-shadow:
+      0 2px 4px rgb(0 0 0 / 0.3),
+      0 12px 28px rgb(255 255 255 / 0.16);
+  }
+}
+
+.btn--light:active:not(:disabled) {
+  background: #ffffff;
+  border-color: var(--color-signal);
+  color: var(--color-ink);
+  box-shadow: var(--glow-signal);
+}
+
+.btn--dark {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 1px 2px rgb(18 23 43 / 0.24),
+    0 6px 16px rgb(18 23 43 / 0.18);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--dark:hover {
+    background: var(--navy-hover);
+    border-color: var(--navy-hover);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.2),
+      0 3px 6px rgb(18 23 43 / 0.24),
+      0 16px 34px rgb(49 81 156 / 0.36);
+  }
+}
+
+.btn--dark:active:not(:disabled) {
+  background: var(--navy-press);
+  border-color: var(--color-signal);
+  box-shadow: var(--glow-signal);
+}
+
+/* ---- Pressable surfaces -------------------------------------------------
+   Large link cards get the same physics at a slower, heavier scale — a big
+   object should feel heavier than a pill.
+   ------------------------------------------------------------------------ */
+.pressable {
+  cursor: pointer;
+  transition:
+    transform 420ms var(--ease-spring),
+    box-shadow 420ms var(--ease-out),
+    background-color var(--dur-hover) var(--ease-out);
+  box-shadow: 0 1px 2px rgb(18 23 43 / 0.06);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pressable:hover {
+    transform: translateY(-5px);
+    box-shadow:
+      0 4px 8px rgb(18 23 43 / 0.08),
+      0 24px 50px rgb(18 23 43 / 0.18);
+  }
+}
+
+.pressable:active {
+  transform: translateY(-1px) scale(0.994);
+  transition-duration: 110ms;
+  transition-timing-function: var(--ease-in-fast);
+  box-shadow: 0 2px 6px rgb(18 23 43 / 0.12);
+}
+
+/* ---- Card arrow dots ----------------------------------------------------
+   These used to fill with near-black on hover, which killed the warmth of
+   the card underneath. They fill with lifted navy instead, and the press
+   lights the signal ring like every other control on the site.
+   ------------------------------------------------------------------------ */
+.arrow-dot {
+  transition:
+    transform 300ms var(--ease-spring),
+    background-color var(--dur-hover) var(--ease-out),
+    border-color var(--dur-hover) var(--ease-out),
+    color var(--dur-hover) var(--ease-out),
+    box-shadow var(--dur-release) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .arrow-dot {
+    background: var(--navy-hover);
+    border-color: var(--navy-hover);
+    color: #ffffff;
+  }
+}
+
+.group:active .arrow-dot {
+  background: var(--navy-press);
+  border-color: var(--color-signal);
+  color: #ffffff;
+  box-shadow: var(--glow-signal);
+  transition-duration: var(--dur-press);
+}
+
+/* On the navy card the same dot needs the inverse treatment, or it would
+   disappear into its own background. */
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .arrow-dot--onNavy {
+    background: var(--color-signal);
+    border-color: var(--color-signal);
+    color: var(--color-ink);
+  }
+}
+
+.group:active .arrow-dot--onNavy {
+  background: var(--signal-press);
+  border-color: var(--color-signal);
+  color: var(--color-ink);
+  box-shadow:
+    0 0 0 4px rgb(255 201 60 / 0.3),
+    0 0 20px rgb(255 201 60 / 0.6);
+}
+
+/* ---- Navigation ---------------------------------------------------------
+   Nav items used to shift vertically on hover, which makes a row of links
+   jitter as the cursor crosses them. The pill background does the same job
+   without moving anything the eye is tracking.
+   ------------------------------------------------------------------------ */
+.nav-link {
+  position: relative;
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding-inline: 1rem;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-slate);
+  transition:
+    background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out),
+    filter 180ms var(--ease-out),
+    box-shadow var(--dur-release) var(--ease-out),
+    transform var(--dur-release) var(--ease-spring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover {
+    background: var(--color-cloud);
+    color: var(--color-navy);
+  }
+}
+
+/* Just the physical dip. The signal ring is the comet's job now — running
+   both would stack two yellow rings on the same click. */
+.nav-link:active {
+  transform: scale(0.955);
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-in-fast);
+}
+
+/* Flat solid navy. No stripe texture, no gradient — a nav pill is a small
+   surface and any pattern inside it reads as noise at this size. */
+.nav-link[aria-current="page"] {
+  background: var(--navy-rest);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgb(33 51 102 / 0.28);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav-link[aria-current="page"]:hover {
+    background: var(--navy-hover);
+    color: #ffffff;
+  }
+}
+
+/* ---- Click comet --------------------------------------------------------
+   A bright head with a fading tail runs the perimeter twice, then dies.
+
+   Two things make this work that are easy to get wrong:
+
+   1. It cannot be driven by `:active`. That state ends the instant the mouse
+      comes up, so the orbit would be cut off mid-lap. A JS class is added on
+      click and removed on animationend, which is what lets the glow outlive
+      the press.
+   2. The comet must ride the border ring only, never the button face. The
+      conic gradient is masked to a 2px rim by XOR-ing a content-box mask
+      against a full-box one.
+
+   `--orbit-angle` is a registered property so the conic gradient's `from`
+   angle can actually animate; plain custom properties are not interpolable.
+   ------------------------------------------------------------------------ */
+@property --orbit-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.orbit {
+  position: relative;
+}
+
+.orbit.is-orbiting::before,
+.orbit.is-orbiting::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* The comet itself. Most of the sweep is transparent, so what travels is a
+   short arc: dim tail → saturated signal → near-white head. */
+.orbit.is-orbiting::before {
+  padding: 2px;
+  background: conic-gradient(
+    from var(--orbit-angle),
+    transparent 0deg 244deg,
+    rgb(255 201 60 / 0.28) 288deg,
+    rgb(255 201 60 / 0.75) 328deg,
+    #fffaf0 352deg,
+    rgb(255 201 60 / 0.6) 357deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 5px rgb(255 201 60 / 0.9));
+  animation:
+    orbit-lap 780ms linear 2,
+    orbit-out 1560ms linear forwards;
+}
+
+/* The aura the comet leaves behind — a soft signal halo that swells on the
+   click and settles out over the same window. */
+.orbit.is-orbiting::after {
+  box-shadow:
+    0 0 0 1px rgb(255 201 60 / 0.5),
+    0 0 16px rgb(255 201 60 / 0.45),
+    0 0 34px rgb(255 201 60 / 0.22);
+  animation: orbit-aura 1560ms var(--ease-out) forwards;
+}
+
+@keyframes orbit-lap {
+  to {
+    --orbit-angle: 360deg;
+  }
+}
+
+@keyframes orbit-out {
+  0%,
+  62% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes orbit-aura {
+  0% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  14% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+/* Icon-only controls (menu toggle) need the same press answer. */
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out),
+    box-shadow var(--dur-release) var(--ease-out),
+    transform var(--dur-release) var(--ease-spring);
+}
+
+.icon-button:active {
+  transform: scale(0.9);
+  border-color: var(--color-signal);
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-in-fast);
 }
 
 .skip-link {
@@ -150,13 +707,75 @@ button {
   background-size: 34px 34px;
 }
 
-/* Homepage signature: the club mark moves from a drafted wireframe to
-   discrete material layers, echoing the actual additive process. */
+/* ---- Clean Entrance & Scroll Reveals ---------------------------- */
+@keyframes hero-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-eyebrow {
+  animation: hero-fade-up 550ms cubic-bezier(0.16, 1, 0.3, 1) 0ms both;
+}
+
+.animate-hero-title {
+  animation: hero-fade-up 650ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+
+.animate-hero-lead {
+  animation: hero-fade-up 650ms cubic-bezier(0.16, 1, 0.3, 1) 160ms both;
+}
+
+.animate-hero-cta {
+  animation: hero-fade-up 650ms cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
+}
+
+.animate-hero-meta {
+  animation: hero-fade-up 650ms cubic-bezier(0.16, 1, 0.3, 1) 320ms both;
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 90ms; }
+.reveal-delay-2 { transition-delay: 180ms; }
+.reveal-delay-3 { transition-delay: 270ms; }
+.reveal-delay-4 { transition-delay: 360ms; }
+
+.mobile-menu-enter {
+  animation: mobile-menu-enter 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top;
+}
+
+@keyframes mobile-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.45rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Homepage signature: blueprint, additive build, then a user-controlled solid. */
 .layer-stage {
-  --rx: 0deg;
-  --ry: 0deg;
-  --mx: 0px;
-  --my: 0px;
+  --logo-yaw: 0deg;
   position: relative;
   width: 100%;
   max-width: 34rem;
@@ -164,6 +783,7 @@ button {
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.42);
   border-radius: var(--radius-card);
+  outline: none;
   background-color: #eef3fb;
   background-image:
     linear-gradient(rgb(33 51 102 / 0.1) 1px, transparent 1px),
@@ -175,13 +795,38 @@ button {
     0 32px 84px rgb(5 10 31 / 0.38),
     inset 0 0 0 1px rgb(33 51 102 / 0.13),
     inset 0 24px 60px rgb(255 255 255 / 0.42);
+  cursor: default;
   isolation: isolate;
-  perspective: 900px;
+  perspective: 980px;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.layer-stage[data-ready="true"] {
+  cursor: grab;
+}
+
+.layer-stage[data-phase="dragging"] {
+  cursor: grabbing;
+}
+
+.layer-stage:focus-visible {
+  outline: 3px solid var(--color-signal);
+  outline-offset: 4px;
+  box-shadow:
+    0 0 0 7px var(--color-ink),
+    0 32px 84px rgb(5 10 31 / 0.38);
+}
+
+.layer-stage__sequence,
+.layer-stage__blueprint-bed,
+.layer-stage__plane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .layer-stage__blueprint-bed {
-  position: absolute;
-  inset: 0;
   z-index: 0;
   background-color: #24508d;
   background-image:
@@ -192,8 +837,7 @@ button {
     radial-gradient(circle at 50% 43%, rgb(68 123 181 / 0.92), #183d75 100%);
   background-position: center;
   background-size: 64px 64px, 64px 64px, 16px 16px, 16px 16px, 100% 100%;
-  pointer-events: none;
-  animation: layer-stage-blueprint-bed 2.45s linear both;
+  animation: layer-stage-blueprint-bed 2.55s linear both;
 }
 
 .layer-stage::before,
@@ -204,7 +848,7 @@ button {
   height: 3rem;
   content: "";
   pointer-events: none;
-  animation: layer-stage-corner-transition 2.45s linear both;
+  animation: layer-stage-corner-transition 2.55s linear both;
 }
 
 .layer-stage::before {
@@ -222,13 +866,8 @@ button {
 }
 
 .layer-stage__plane {
-  position: absolute;
-  inset: 0;
   z-index: 1;
-  transform: translate3d(var(--mx), var(--my), 0) rotateX(var(--rx)) rotateY(var(--ry));
   transform-style: preserve-3d;
-  transition: transform 180ms ease-out;
-  will-change: transform;
 }
 
 .layer-stage__object {
@@ -244,22 +883,21 @@ button {
 .layer-stage__shadow {
   position: absolute;
   z-index: 0;
-  left: 5%;
-  right: 5%;
-  bottom: -1.5%;
-  height: 5%;
+  left: 1%;
+  right: 1%;
+  bottom: -2%;
+  height: 6%;
   border-radius: 50%;
   background: rgb(18 23 43 / 0.42);
-  filter: blur(10px);
+  filter: blur(11px);
   opacity: 0;
   transform: scaleX(0.72);
-  animation:
-    layer-stage-shadow 800ms cubic-bezier(0.22, 1, 0.36, 1) 3.05s forwards,
-    layer-stage-shadow-spin 2.75s cubic-bezier(0.45, 0, 0.16, 1) 3.58s forwards;
+  animation: layer-stage-shadow 720ms cubic-bezier(0.16, 1, 0.3, 1) 3.45s forwards;
 }
 
 .layer-stage__wireframe,
 .layer-stage__turntable,
+.layer-stage__model-canvas,
 .layer-stage__material,
 .layer-stage__passes {
   position: absolute;
@@ -270,11 +908,34 @@ button {
 
 .layer-stage__turntable {
   z-index: 3;
-  transform: rotateX(0deg) rotateY(0deg);
+  opacity: 1;
+  transform: rotateX(0deg) rotateY(var(--logo-yaw));
   transform-origin: center;
   transform-style: preserve-3d;
+  transition:
+    opacity 180ms ease,
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.layer-stage[data-phase="dragging"] .layer-stage__turntable {
+  transition: none;
   will-change: transform;
-  animation: layer-stage-logo-spin 2.75s cubic-bezier(0.45, 0, 0.16, 1) 3.58s forwards;
+}
+
+.layer-stage__model-canvas {
+  z-index: 3;
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.layer-stage[data-ready="true"][data-model-ready="true"] .layer-stage__turntable {
+  opacity: 0;
+}
+
+.layer-stage[data-ready="true"][data-model-ready="true"] .layer-stage__model-canvas {
+  opacity: 1;
 }
 
 .layer-stage__wireframe {
@@ -282,7 +943,7 @@ button {
   overflow: visible;
   opacity: 0;
   filter: drop-shadow(0 0 9px rgb(137 211 255 / 0.16));
-  animation: layer-stage-wireframe-phase 2.35s ease-out both;
+  animation: layer-stage-wireframe-phase 2.45s ease-out both;
 }
 
 .layer-stage__logo-mask {
@@ -325,7 +986,7 @@ button {
   filter: grayscale(1) brightness(2.8) contrast(1.15);
   mix-blend-mode: screen;
   opacity: 0;
-  animation: layer-stage-blueprint-ghost 900ms cubic-bezier(0.22, 1, 0.36, 1) 110ms forwards;
+  animation: layer-stage-blueprint-ghost 1.2s cubic-bezier(0.22, 1, 0.36, 1) 140ms forwards;
 }
 
 .layer-stage__wire-line {
@@ -336,13 +997,13 @@ button {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   vector-effect: non-scaling-stroke;
-  animation: layer-stage-wire-trace 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: layer-stage-wire-trace 640ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .layer-stage__contour {
   clip-path: inset(0 100% 0 0);
   opacity: 0;
-  animation: layer-stage-contour-in 920ms cubic-bezier(0.22, 1, 0.36, 1) 100ms forwards;
+  animation: layer-stage-contour-in 1.45s cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
 }
 
 .layer-stage__draft-sweep {
@@ -352,31 +1013,42 @@ button {
   filter: drop-shadow(0 0 5px rgb(255 201 60 / 0.72));
   transform-box: view-box;
   vector-effect: non-scaling-stroke;
-  animation: layer-stage-draft-sweep 980ms cubic-bezier(0.22, 1, 0.36, 1) 90ms forwards;
+  animation: layer-stage-draft-sweep 1.55s cubic-bezier(0.22, 1, 0.36, 1) 140ms forwards;
 }
 
 .layer-stage__material {
   display: block;
   object-fit: contain;
-  backface-visibility: hidden;
   clip-path: inset(100% 0 0 0);
   opacity: 0;
-  animation: layer-stage-material-build 2.02s steps(28, end) 1.37s both;
+  animation: layer-stage-material-build 2.05s steps(30, end) 2.05s both;
   user-select: none;
 }
 
 .layer-stage__material--front {
+  backface-visibility: hidden;
   filter: drop-shadow(0 22px 18px rgb(18 23 43 / 0.28));
-  transform: translateZ(4px);
+  transform: translateZ(16px);
 }
 
 .layer-stage__material--depth {
-  filter: brightness(0.42) saturate(0.74);
+  backface-visibility: visible;
+  background: var(--depth-tone);
+  transform: translateZ(var(--depth-z));
+  -webkit-mask-image: url("/img/logo.png");
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-image: url("/img/logo.png");
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
 }
 
 .layer-stage__material--back {
-  filter: brightness(0.68) saturate(0.76) drop-shadow(0 18px 16px rgb(18 23 43 / 0.2));
-  transform: rotateY(180deg) translateZ(4px);
+  backface-visibility: hidden;
+  filter: brightness(0.66) saturate(0.78) drop-shadow(0 18px 16px rgb(18 23 43 / 0.2));
+  transform: rotateY(180deg) translateZ(16px);
 }
 
 .layer-stage__passes {
@@ -421,11 +1093,8 @@ button {
 }
 
 @keyframes layer-stage-blueprint-bed {
-  0% {
-    opacity: 1;
-  }
-
-  56% {
+  0%,
+  74% {
     opacity: 1;
   }
 
@@ -435,11 +1104,8 @@ button {
 }
 
 @keyframes layer-stage-corner-transition {
-  0% {
-    border-color: rgb(216 239 255 / 0.78);
-  }
-
-  56% {
+  0%,
+  74% {
     border-color: rgb(216 239 255 / 0.78);
   }
 
@@ -454,7 +1120,7 @@ button {
   }
 
   5%,
-  60% {
+  78% {
     opacity: 1;
   }
 
@@ -464,22 +1130,22 @@ button {
 }
 
 @keyframes layer-stage-guide-in {
-  0% {
+  from {
     opacity: 0;
   }
 
-  100% {
+  to {
     opacity: 1;
   }
 }
 
 @keyframes layer-stage-blueprint-ghost {
-  0% {
+  from {
     clip-path: inset(0 100% 0 0);
     opacity: 0;
   }
 
-  100% {
+  to {
     clip-path: inset(0 0 0 0);
     opacity: 0.12;
   }
@@ -568,59 +1234,14 @@ button {
 }
 
 @keyframes layer-stage-shadow {
-  0% {
+  from {
     opacity: 0;
     transform: scaleX(0.72);
   }
 
-  100% {
+  to {
     opacity: 0.3;
     transform: scaleX(1);
-  }
-}
-
-@keyframes layer-stage-shadow-spin {
-  0% {
-    opacity: 0.3;
-    transform: scaleX(1);
-  }
-
-  25%,
-  75% {
-    opacity: 0.18;
-    transform: scaleX(0.52);
-  }
-
-  50% {
-    opacity: 0.27;
-    transform: scaleX(0.96);
-  }
-
-  100% {
-    opacity: 0.3;
-    transform: scaleX(1);
-  }
-}
-
-@keyframes layer-stage-logo-spin {
-  0% {
-    transform: rotateX(0deg) rotateY(0deg);
-  }
-
-  25% {
-    transform: rotateX(-3deg) rotateY(90deg);
-  }
-
-  50% {
-    transform: rotateX(2deg) rotateY(180deg);
-  }
-
-  75% {
-    transform: rotateX(-2deg) rotateY(270deg);
-  }
-
-  100% {
-    transform: rotateX(0deg) rotateY(360deg);
   }
 }
 
@@ -630,9 +1251,128 @@ button {
   transition: filter 450ms ease, transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.group:hover .project-image {
+.group:hover .project-image,
+.group:focus-visible .project-image {
   filter: saturate(1) contrast(1.02);
   transform: scale(1.025);
+}
+
+/* ---- Form fields --------------------------------------------------------
+   A field should look inert until you touch it, then clearly claim focus.
+   The ring is a box-shadow rather than an outline so it can animate.
+   ------------------------------------------------------------------------ */
+@layer components {
+  .field {
+    min-height: 3rem;
+    width: 100%;
+    border: 1px solid var(--color-mist);
+    border-radius: 0.75rem;
+    background: var(--color-cloud);
+    padding: 0.75rem 1rem;
+    font-size: 16px;
+    color: var(--color-ink);
+    transition:
+      border-color 180ms var(--ease-out),
+      background-color 180ms var(--ease-out),
+      box-shadow 220ms var(--ease-out);
+  }
+}
+
+.field::placeholder {
+  color: rgb(86 99 127 / 0.65);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* `:not(:user-invalid)` matters — without it the hover rule out-specifies
+     the error rule and the red state vanishes under the cursor. */
+  .field:hover:not(:focus):not(:user-invalid) {
+    border-color: rgb(33 51 102 / 0.35);
+    background: #eef2f9;
+  }
+}
+
+.field:focus {
+  border-color: var(--color-navy);
+  background: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 3.5px rgb(33 51 102 / 0.14);
+}
+
+/* Only after the user has actually entered something wrong — :user-invalid
+   does not fire on untouched required fields the way :invalid does. */
+.field:user-invalid {
+  border-color: #c2453b;
+  background: #fff6f5;
+}
+
+.field:user-invalid:focus {
+  box-shadow: 0 0 0 3.5px rgb(194 69 59 / 0.16);
+}
+
+/* ---- Header elevation ---------------------------------------------------
+   Flat while the page is at the top, lifted once content passes underneath.
+   ------------------------------------------------------------------------ */
+.site-header {
+  transition: box-shadow 260ms var(--ease-out), background-color 260ms var(--ease-out);
+}
+
+.site-header[data-scrolled="true"] {
+  box-shadow: 0 1px 0 rgb(33 51 102 / 0.06), 0 10px 30px rgb(18 23 43 / 0.08);
+}
+
+/* ---- Footer links ------------------------------------------------------- */
+.footer-link {
+  position: relative;
+  display: inline-block;
+  color: rgb(255 255 255 / 0.75);
+  transition: color 180ms var(--ease-out), transform 260ms var(--ease-spring);
+}
+
+.footer-link::after {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  height: 1px;
+  width: 100%;
+  background: var(--color-signal);
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 300ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .footer-link:hover {
+    color: var(--color-signal);
+    transform: translateX(2px);
+  }
+}
+
+.footer-link:hover::after,
+.footer-link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* ---- Mobile menu rows --------------------------------------------------- */
+.menu-row {
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    padding-left 260ms var(--ease-spring);
+}
+
+.menu-row:active {
+  background: var(--color-cloud);
+  padding-left: 0.6rem;
+  transition-duration: var(--dur-press);
+}
+
+.menu-row > [aria-hidden="true"] {
+  transition: transform 260ms var(--ease-spring);
+}
+
+.menu-row:active > [aria-hidden="true"] {
+  transform: translateX(5px);
 }
 
 @media (max-width: 767px) {
@@ -655,28 +1395,67 @@ button {
     transition-duration: 0.01ms !important;
   }
 
-  .layer-stage__plane {
+  .animate-hero-eyebrow,
+  .animate-hero-title,
+  .animate-hero-lead,
+  .animate-hero-cta,
+  .animate-hero-meta {
+    animation: none !important;
+    opacity: 1 !important;
     transform: none !important;
+  }
+
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* The spinner is status, not decoration — it keeps turning, just slower. */
+  .spinner {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  /* No orbit. The click still gets a static confirmation ring. */
+  .orbit.is-orbiting::before {
+    display: none;
+  }
+
+  .orbit.is-orbiting::after {
+    animation: none !important;
+    opacity: 1;
   }
 
   .layer-stage__wireframe,
   .layer-stage__passes,
-  .layer-stage__blueprint-bed,
-  .layer-stage__material--depth,
-  .layer-stage__material--back {
+  .layer-stage__blueprint-bed {
     display: none;
   }
 
   .layer-stage__turntable {
     animation: none;
-    transform: none;
+    transform: rotateX(0deg) rotateY(var(--logo-yaw));
   }
 
   .layer-stage__material {
     animation: none;
     clip-path: none;
     opacity: 1;
-    transform: none;
+  }
+
+  .layer-stage__material--front {
+    transform: translateZ(16px);
+  }
+
+  .layer-stage__material--depth {
+    display: block;
+    transform: translateZ(var(--depth-z));
+  }
+
+  .layer-stage__material--back {
+    display: block;
+    transform: rotateY(180deg) translateZ(16px);
   }
 
   .layer-stage__shadow {

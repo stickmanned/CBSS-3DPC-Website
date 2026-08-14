@@ -44,7 +44,7 @@ export const gallery: Work[] = [
     title: "Wizard",
     printedBy: "Parham",
     blurb:
-      "A small wizard figure with a wide hat brim. The support material left visible marks underneath, showing part of the process behind the finished print.",
+      "A small wizard figure wearing a magical hat with stars and gems. Made using TinkerCAD's repository of shapes.",
     image: "/img/student-works/wizard.png",
     material: "Black PLA",
   },
@@ -53,25 +53,25 @@ export const gallery: Work[] = [
 /* ---- Learning path --------------------------------------------- */
 export const guides = [
   {
-    title: "Tinkercad",
+    title: "TinkerCAD",
     level: "Start here",
     blurb:
       "Build a first model from simple shapes and learn the fundamentals of size, alignment, and combining parts.",
     href: "https://www.tinkercad.com/",
   },
   {
-    title: "Fusion",
+    title: "Autodesk Fusion",
     level: "Build with precision",
     blurb:
-      "Move into a more advanced CAD workflow when exact dimensions and editable features matter.",
+      "Move into an industry standard CAD workflow when exact dimensions and editable features matter.",
     href: "https://www.autodesk.com/products/fusion-360/education",
   },
   {
-    title: "OrcaSlicer",
+    title: "The Slicer",
     level: "Prepare the print",
     blurb:
-      "Learn how a slicer turns a 3D model into printer instructions, including layers, supports, and infill.",
-    href: "https://orcaslicer.com/",
+      "Learn how to operate the slicer, software that turns a 3D model into printer instructions, such as layers, supports, and infill.",
+    href: "https://prusaslicer.com/",
   },
 ] as const;
 

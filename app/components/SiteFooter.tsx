@@ -12,13 +12,13 @@ export default function SiteFooter() {
           <div>
             <p className="eyebrow text-signal">The next layer is yours</p>
             <h2 className="mt-5 max-w-[9ch] text-5xl sm:text-6xl md:text-7xl">
-              Make something with us.
+              Make something amazing
             </h2>
           </div>
 
           <div>
             <p className="max-w-[42ch] text-lg leading-relaxed text-white/70">
-              Request a print online, or join the club {club.meets.toLowerCase()} from {" "}
+              Request a print, or join the club on {club.meets.toLowerCase()} from {" "}
               {club.time} in {club.room}.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
@@ -34,7 +34,7 @@ export default function SiteFooter() {
 
         <div className="grid gap-10 pt-12 sm:grid-cols-2 lg:grid-cols-[1fr_.8fr_1.2fr]">
           <div>
-            <p className="eyebrow text-white/60">Visit</p>
+            <p className="eyebrow text-white/60">Dr. Charles Best 3D Printing Club</p>
             <p className="mt-4 font-display text-lg font-bold">
               {club.meets} · {club.time}
             </p>
@@ -47,7 +47,7 @@ export default function SiteFooter() {
             <ul className="mt-4 grid gap-2.5">
               {nav.map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="text-white/75 hover:text-signal">
+                  <Link href={item.href} className="footer-link">
                     {item.label}
                   </Link>
                 </li>
@@ -63,7 +63,7 @@ export default function SiteFooter() {
                 <dd>
                   <a
                     href={`mailto:${club.contactEmail}`}
-                    className="break-all font-display font-bold text-white hover:text-signal"
+                    className="footer-link break-all font-display font-bold !text-white hover:!text-signal"
                   >
                     {club.contactEmail}
                   </a>
@@ -73,7 +73,7 @@ export default function SiteFooter() {
                 <dt className="text-sm text-white/60">Club sponsor</dt>
                 <dd className="text-white/75">
                   {club.sponsorName} ·{" "}
-                  <a href={`mailto:${club.sponsorEmail}`} className="hover:text-signal">
+                  <a href={`mailto:${club.sponsorEmail}`} className="footer-link">
                     {club.sponsorEmail}
                   </a>
                 </dd>
@@ -81,9 +81,8 @@ export default function SiteFooter() {
             </dl>
           </div>
         </div>
-
         <p className="mt-14 border-t border-white/10 pt-6 font-mono text-[10px] font-semibold uppercase tracking-[0.11em] text-white/55">
-          {club.name} · {club.school} · {club.district}
+          Copyright © 2026 William Wen. All rights reserved.
         </p>
       </div>
     </footer>

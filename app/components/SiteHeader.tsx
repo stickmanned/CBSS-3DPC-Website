@@ -3,31 +3,106 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { club, nav } from "../lib/content";
+
+/* Fires the click comet. `:active` would end the moment the pointer lifts and
+   cut the orbit off mid-lap, so the class is applied here and torn down when
+   the animation reports itself finished. Removing it first and reading
+   offsetWidth restarts the animation on a rapid second click.
+
+   The teardown uses a native listener rather than React's `onAnimationEnd`:
+   these animations run on ::before/::after, and the synthetic event does not
+   fire for pseudo-element animations, which left the class stuck on. */
+const orbit = {
+  onPointerDown(event: React.PointerEvent<HTMLElement>) {
+    const el = event.currentTarget;
+    el.classList.remove("is-orbiting");
+    void el.offsetWidth;
+    el.classList.add("is-orbiting");
+
+    /* Two ways out, because animationend is not guaranteed: a backgrounded tab
+       defers it, and it never arrives at all if the animation is interrupted.
+       Without the timer a dropped event would leave the ring lit permanently. */
+    const clear = () => {
+      el.classList.remove("is-orbiting");
+      el.removeEventListener("animationend", onEnd);
+      window.clearTimeout(timer);
+    };
+    const onEnd = (e: AnimationEvent) => {
+      if (e.animationName === "orbit-aura") clear();
+    };
+    const timer = window.setTimeout(clear, 1900);
+    el.addEventListener("animationend", onEnd);
+  },
+};
 
 export default function SiteHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let animationFrame: number | null = null;
+
+    function updateProgress() {
+      animationFrame = null;
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollHeight > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollHeight)) : 0;
+      progressRef.current?.style.setProperty("transform", `scaleX(${progress})`);
+      setScrolled(window.scrollY > 8);
+    }
+
+    function handleScroll() {
+      if (animationFrame === null) animationFrame = window.requestAnimationFrame(updateProgress);
+    }
+
+    updateProgress();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [menuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-mist bg-white/95 backdrop-blur-md">
+    <header
+      data-scrolled={scrolled ? "true" : "false"}
+      className="site-header sticky top-0 z-50 border-b border-mist bg-white/95 backdrop-blur-md"
+    >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 md:h-[4.5rem]">
         <Link
           href="/"
           aria-label={`${club.name} — Home`}
-          className="flex min-w-0 shrink-0 items-center gap-2.5"
+          className="group flex min-w-0 shrink-0 items-center gap-2.5 rounded-xl transition-transform duration-200 active:scale-[0.97]"
           onClick={() => setMenuOpen(false)}
         >
-          <Image
-            src="/img/logo.png"
-            alt=""
-            width={699}
-            height={902}
-            className="h-8 w-auto md:h-9"
-          />
+          <div className="transition-transform duration-300 [transition-timing-function:var(--ease-spring)] group-hover:scale-110 group-hover:-rotate-3">
+            <Image
+              src="/img/logo.png"
+              alt=""
+              width={699}
+              height={902}
+              className="h-8 w-auto md:h-9"
+            />
+          </div>
           <span className="hidden flex-col leading-none sm:flex">
-            <span className="font-display text-[15px] font-extrabold tracking-[-0.025em] text-ink">
+            <span className="font-display text-[15px] font-extrabold tracking-[-0.025em] text-ink transition-colors group-hover:text-navy">
               CBSS
             </span>
             <span className="mt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-slate">
@@ -38,7 +113,7 @@ export default function SiteHeader() {
 
         <div className="flex items-center gap-2 lg:gap-3">
           <nav aria-label="Main navigation" className="hidden lg:block">
-            <ul className="flex items-center gap-0.5">
+            <ul className="flex items-center gap-1">
               {nav.map((item) => {
                 const active = pathname === item.href;
                 return (
@@ -46,11 +121,8 @@ export default function SiteHeader() {
                     <Link
                       href={item.href}
                       aria-current={active ? "page" : undefined}
-                      className={`inline-flex min-h-11 items-center rounded-[var(--radius-pill)] px-4 font-display text-[14px] font-semibold transition-colors ${
-                        active
-                          ? "bg-cloud text-ink"
-                          : "text-slate hover:bg-cloud hover:text-ink"
-                      }`}
+                      className="nav-link orbit"
+                      {...orbit}
                     >
                       {item.label}
                     </Link>
@@ -58,10 +130,7 @@ export default function SiteHeader() {
                 );
               })}
               <li>
-                <Link
-                  href="/about#join"
-                  className="inline-flex min-h-11 items-center rounded-[var(--radius-pill)] px-4 font-display text-[14px] font-semibold text-slate transition-colors hover:bg-cloud hover:text-ink"
-                >
+                <Link href="/about#join" className="nav-link orbit" {...orbit}>
                   Join the club
                 </Link>
               </li>
@@ -71,16 +140,19 @@ export default function SiteHeader() {
           <Link
             href="/request"
             aria-current={pathname === "/request" ? "page" : undefined}
-            className="inline-flex min-h-11 items-center rounded-[var(--radius-pill)] bg-signal px-4 font-display text-[14px] font-bold text-ink transition-colors hover:bg-ink hover:text-white sm:px-5"
+            className="btn btn--primary btn--sm orbit"
             onClick={() => setMenuOpen(false)}
+            {...orbit}
           >
             <span className="sm:hidden">Request</span>
             <span className="hidden sm:inline">Request a print</span>
+            <span aria-hidden="true">→</span>
           </Link>
 
           <button
             type="button"
-            className="inline-grid size-11 place-items-center rounded-full border border-mist text-ink transition-colors hover:border-navy hover:bg-cloud lg:hidden"
+            className="icon-button orbit size-11 border border-mist text-ink hover:border-navy hover:bg-cloud lg:hidden"
+            {...orbit}
             aria-expanded={menuOpen}
             aria-controls="mobile-navigation"
             aria-label={menuOpen ? "Close navigation" : "Open navigation"}
@@ -99,11 +171,19 @@ export default function SiteHeader() {
         </div>
       </div>
 
+      {/* Layer build progress line */}
+      <div className="h-[2px] w-full bg-mist/40 overflow-hidden" aria-hidden="true">
+        <div
+          ref={progressRef}
+          className="h-full origin-left scale-x-0 bg-gradient-to-r from-navy via-signal to-navy transition-transform duration-75 ease-out"
+        />
+      </div>
+
       {menuOpen && (
         <nav
           id="mobile-navigation"
           aria-label="Mobile navigation"
-          className="border-t border-mist bg-white px-5 pb-6 pt-3 lg:hidden"
+          className="mobile-menu-enter border-t border-mist bg-white px-5 pb-6 pt-3 shadow-xl lg:hidden"
         >
           <ul className="mx-auto grid max-w-6xl">
             {nav.map((item) => (
@@ -111,7 +191,7 @@ export default function SiteHeader() {
                 <Link
                   href={item.href}
                   aria-current={pathname === item.href ? "page" : undefined}
-                  className="flex min-h-14 items-center justify-between font-display text-lg font-bold text-ink"
+                  className="menu-row flex min-h-14 items-center justify-between rounded-lg font-display text-lg font-bold text-ink hover:text-navy"
                   onClick={() => setMenuOpen(false)}
                 >
                   {item.label}
@@ -124,7 +204,7 @@ export default function SiteHeader() {
             <li>
               <Link
                 href="/about#join"
-                className="flex min-h-14 items-center justify-between font-display text-lg font-bold text-ink"
+                className="flex min-h-14 items-center justify-between font-display text-lg font-bold text-ink transition-colors hover:text-navy"
                 onClick={() => setMenuOpen(false)}
               >
                 Join the club

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Button from "./components/Button";
 import LayerStage from "./components/LayerStage";
+import ScrollReveal from "./components/ScrollReveal";
 import { club, gallery, meetingFacts } from "./lib/content";
 
 const process = [
@@ -13,7 +14,7 @@ const process = [
   {
     label: "Prepare",
     title: "Plan the print.",
-    body: "Consider scale, orientation, supports, and the details that influence the result.",
+    body: "Consider scale, supports, infill, and the details that influence the printed object.",
   },
   {
     label: "Inspect",
@@ -32,20 +33,19 @@ export default function Home() {
 
         <div className="mx-auto grid min-h-[calc(100svh-var(--header-height))] max-w-6xl items-center gap-12 px-5 py-14 lg:grid-cols-[1.05fr_.95fr] lg:gap-16 lg:py-16">
           <div className="relative z-10">
-            <p className="eyebrow text-signal">
-              {club.school} · {club.room}
+            <p className="eyebrow text-signal animate-hero-eyebrow">
+              Dr. Charles Best Secondary School 3D Printing Club
             </p>
 
-            <h1 className="mt-6 max-w-[9.5ch] text-[clamp(3.75rem,8.4vw,7.25rem)]">
-              Ideas become <span className="text-signal">objects</span> here.
+            <h1 className="mt-6 max-w-[9.5ch] text-[clamp(3.75rem,8.4vw,7.25rem)] animate-hero-title">
+              Ideas become <span className="text-signal">reality</span> <br></br> here.
             </h1>
 
-            <p className="mt-7 max-w-[43ch] text-lg leading-relaxed text-white/70 md:text-xl">
-              Explore what CBSS students are making, learn the basics of 3D design, or
-              bring us a model of your own.
+            <p className="mt-7 max-w-[43ch] text-lg leading-relaxed text-white/70 md:text-xl animate-hero-lead">
+              CBSS 3D printing club is a community where students design, model, and 3D print cool stuff.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap gap-3 animate-hero-cta">
               <Button href="/request">
                 Request a print <span aria-hidden="true">→</span>
               </Button>
@@ -53,10 +53,6 @@ export default function Home() {
                 Join the club <span aria-hidden="true">→</span>
               </Button>
             </div>
-
-            <p className="mt-8 font-mono text-[11px] font-semibold uppercase tracking-[0.11em] text-white/60">
-              {club.meets} · {club.time} · {club.room}
-            </p>
           </div>
 
           <div className="flex justify-center lg:justify-end">
@@ -70,7 +66,7 @@ export default function Home() {
           {meetingFacts.map((fact, index) => (
             <div
               key={fact.label}
-              className={`py-6 md:px-6 ${
+              className={`py-6 md:px-6 transition-colors duration-200 hover:bg-cloud/50 ${
                 index % 2 === 0 ? "pr-4" : "border-l border-mist pl-4"
               } ${index > 1 ? "border-t border-mist md:border-t-0" : ""} ${
                 index > 0 ? "md:border-l md:border-mist" : "md:pl-0"
@@ -87,144 +83,166 @@ export default function Home() {
 
       {feature && (
         <section className="mx-auto max-w-6xl px-5 py-24 md:py-32">
-          <div className="grid gap-8 md:grid-cols-[.55fr_1fr] md:items-end">
-            <p className="eyebrow text-slate">Featured print</p>
+          <ScrollReveal>
             <div>
-              <h2 className="max-w-[12ch] text-5xl text-ink sm:text-6xl">
-                The work is the proof.
+              <p className="eyebrow text-slate">Student Work</p>
+              <h2 className="mt-5 max-w-[12ch] text-5xl text-ink sm:text-6xl">
+                Designed by CBSS Students
               </h2>
               <p className="mt-5 max-w-[48ch] text-lg text-slate">
-                Real prints carry the layer lines, support marks, and small decisions that
-                made them possible.
+                Here&apos;s some of the amazing work that CBSS students have created. Every print tells a story of imagination, problem-solving, and creativity.
               </p>
             </div>
-          </div>
-
-          <article className="group mt-12 grid overflow-hidden rounded-[var(--radius-card)] bg-cloud lg:grid-cols-[1.28fr_.72fr]">
-            <div className="relative min-h-[28rem] overflow-hidden bg-ink sm:min-h-[36rem] lg:min-h-[42rem]">
-              <Image
-                src={feature.image}
-                alt={`${feature.title}, printed by ${feature.printedBy}`}
-                fill
-                sizes="(max-width: 1024px) 100vw, 720px"
-                className="project-image object-cover object-[center_38%]"
-              />
-            </div>
-
-            <div className="flex flex-col justify-between p-7 sm:p-10 lg:p-12">
-              <div>
-                <p className="eyebrow text-slate">Project record</p>
-                <h3 className="mt-5 text-5xl text-ink sm:text-6xl">{feature.title}</h3>
-
-                <dl className="mt-8 grid gap-4 border-y border-mist py-5 font-mono text-xs uppercase tracking-[0.08em] sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                  <div>
-                    <dt className="text-slate">Printed by</dt>
-                    <dd className="mt-1 font-semibold text-ink">{feature.printedBy}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate">Material</dt>
-                    <dd className="mt-1 font-semibold text-ink">{feature.material}</dd>
-                  </div>
-                </dl>
-
-                <p className="mt-7 text-lg leading-relaxed text-slate">{feature.blurb}</p>
+          </ScrollReveal>
+          <ScrollReveal delay={1}>
+            <article className="group mt-12 grid overflow-hidden rounded-[var(--radius-card)] bg-cloud transition-shadow duration-300 hover:shadow-xl lg:grid-cols-[1.28fr_.72fr]">
+              <div className="relative min-h-[28rem] overflow-hidden bg-ink sm:min-h-[36rem] lg:min-h-[42rem]">
+                <Image
+                  src={feature.image}
+                  alt={`${feature.title}, printed by ${feature.printedBy}`}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 720px"
+                  className="project-image object-cover object-[center_38%]"
+                />
               </div>
+              <div className="flex flex-col justify-between p-7 sm:p-10 lg:p-12">
+                <div>
+                  <p className="eyebrow text-slate">Name</p>
+                  <h3 className="mt-5 text-5xl text-ink sm:text-6xl">{feature.title}</h3>
 
-              <Link href="/gallery" className="text-link mt-10 w-fit">
-                View student work <span aria-hidden="true">→</span>
-              </Link>
-            </div>
-          </article>
+                  <dl className="mt-8 grid gap-4 border-y border-mist py-5 font-mono text-xs uppercase tracking-[0.08em] sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                    <div>
+                      <dt className="text-slate">Creator</dt>
+                      <dd className="mt-1 font-semibold text-ink">{feature.printedBy}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate">Material</dt>
+                      <dd className="mt-1 font-semibold text-ink">{feature.material}</dd>
+                    </div>
+                  </dl>
+
+                  <p className="mt-7 text-lg leading-relaxed text-slate">{feature.blurb}</p>
+                </div>
+
+                <Link href="/gallery" className="text-link mt-10 w-fit">
+                  View student work <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+            </article>
+          </ScrollReveal>
         </section>
       )}
 
       <section className="bg-cloud py-24 md:py-32">
         <div className="mx-auto max-w-6xl px-5">
-          <p className="eyebrow text-slate">Your next step</p>
-          <h2 className="mt-5 max-w-[11ch] text-5xl text-ink sm:text-6xl md:text-7xl">
-            Two ways into the club.
-          </h2>
+          <ScrollReveal>
+            <p className="eyebrow text-slate">What's next?</p>
+            <h2 className="mt-5 max-w-[11ch] text-5xl text-ink sm:text-6xl md:text-7xl">
+              Join our club and community.
+            </h2>
+          </ScrollReveal>
 
           <div className="mt-12 grid gap-4 lg:grid-cols-12">
-            <Link
-              href="/request"
-              className="group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-signal p-7 text-ink transition-transform duration-300 hover:-translate-y-1 sm:p-10 lg:col-span-7"
-            >
-              <div className="flex items-start justify-between gap-6">
-                <p className="eyebrow">Request a print</p>
-                <span
-                  aria-hidden="true"
-                  className="grid size-12 place-items-center rounded-full border border-ink/30 font-mono transition-transform duration-300 group-hover:translate-x-1"
-                >
-                  →
-                </span>
-              </div>
-              <div>
-                <h3 className="max-w-[10ch] text-5xl sm:text-6xl">Have a model ready?</h3>
-                <p className="mt-5 max-w-[43ch] text-lg text-ink/75">
-                  Share your project details. We’ll review the request and follow up by
-                  email.
-                </p>
-              </div>
-            </Link>
+            <ScrollReveal delay={1} className="lg:col-span-7">
+              <Link
+                href="/request"
+                className="pressable group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-signal p-7 text-ink sm:p-10"
+              >
+                <div className="flex items-start justify-between gap-6">
+                  <p className="eyebrow">Request a print</p>
+                  <span
+                    aria-hidden="true"
+                    className="arrow-dot grid size-12 place-items-center rounded-full border border-ink/30 font-mono group-hover:translate-x-1 group-active:translate-x-2"
+                  >
+                    <svg viewBox="0 0 24 24" className="size-5" fill="none">
+                      <path
+                        d="M5 12h14M14 7l5 5-5 5"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+                <div>
+                  <h3 className="max-w-[10ch] text-5xl sm:text-6xl">Have a model ready?</h3>
+                  <p className="mt-5 max-w-[43ch] text-lg text-ink/75">
+                    Share your project details. We’ll review the request and follow up by
+                    email.
+                  </p>
+                </div>
+              </Link>
+            </ScrollReveal>
 
-            <Link
-              href="/about#join"
-              className="group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-navy p-7 text-white transition-transform duration-300 hover:-translate-y-1 sm:p-10 lg:col-span-5"
-            >
-              <div className="flex items-start justify-between gap-6">
-                <p className="eyebrow text-white/65">Drop by a meeting</p>
-                <span
-                  aria-hidden="true"
-                  className="grid size-12 place-items-center rounded-full border border-white/30 font-mono text-signal transition-transform duration-300 group-hover:translate-x-1"
-                >
-                  →
-                </span>
-              </div>
-              <div>
-                <h3 className="max-w-[9ch] text-5xl sm:text-6xl">Learn by making.</h3>
-                <p className="mt-5 max-w-[36ch] text-lg text-white/70">
-                  Meet us {club.meets.toLowerCase()} in {club.room}. See what we’re working
-                  on, ask a question, or bring an idea.
-                </p>
-              </div>
-            </Link>
+            <ScrollReveal delay={2} className="lg:col-span-5">
+              <Link
+                href="/about#join"
+                className="pressable group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-navy p-7 text-white sm:p-10"
+              >
+                <div className="flex items-start justify-between gap-6">
+                  <p className="eyebrow text-white/65">Join the club</p>
+                  <span
+                    aria-hidden="true"
+                    className="arrow-dot arrow-dot--onNavy grid size-12 place-items-center rounded-full border border-white/30 font-mono text-signal group-hover:translate-x-1 group-active:translate-x-2"
+                  >
+                    <svg viewBox="0 0 24 24" className="size-5" fill="none">
+                      <path
+                        d="M5 12h14M14 7l5 5-5 5"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+                <div>
+                  <h3 className="max-w-[9ch] text-5xl sm:text-6xl">Join our Teams</h3>
+                  <p className="mt-5 max-w-[36ch] text-lg text-white/70">
+                    Email 080-wwen@sd43.bc.ca with your name and school email to get added to our Teams.
+                  </p>
+                </div>
+              </Link>
+            </ScrollReveal>
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-5 py-24 md:py-32">
-        <div className="grid gap-8 md:grid-cols-[.75fr_1.25fr]">
-          <div>
-            <p className="eyebrow text-slate">How making works</p>
-            <h2 className="mt-5 max-w-[9ch] text-5xl text-ink sm:text-6xl">
-              Built one decision at a time.
-            </h2>
-          </div>
+        <ScrollReveal>
+          <div className="grid gap-8 md:grid-cols-[.75fr_1.25fr]">
+            <div>
+              <p className="eyebrow text-slate">The 3D printing journey</p>
+              <h2 className="mt-5 max-w-[28ch] text-5xl text-ink sm:text-6xl">
+                From idea to finished object.
+              </h2>
+            </div>
 
-          <div>
-            <ol className="border-t border-ink">
-              {process.map((step, index) => (
-                <li
-                  key={step.label}
-                  className="grid gap-3 border-b border-mist py-7 sm:grid-cols-[4rem_.55fr_1fr] sm:gap-6"
-                >
-                  <span className="font-mono text-xs font-semibold text-slate">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <h3 className="text-2xl text-ink">{step.title}</h3>
-                  <p className="text-slate">{step.body}</p>
-                </li>
-              ))}
-            </ol>
+            <div>
+              <ol className="border-t border-ink">
+                {process.map((step, index) => (
+                  <li
+                    key={step.label}
+                    className="group grid gap-3 border-b border-mist py-7 transition-colors duration-200 hover:bg-cloud/60 sm:grid-cols-[4rem_.55fr_1fr] sm:gap-6 sm:px-3 rounded-lg"
+                  >
+                    <span className="font-mono text-xs font-semibold text-slate transition-colors group-hover:text-navy">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <h3 className="text-2xl text-ink">{step.title}</h3>
+                    <p className="text-slate">{step.body}</p>
+                  </li>
+                ))}
+              </ol>
 
-            <div className="mt-8">
-              <Button href="/guides" variant="secondary">
-                Explore the learning path <span aria-hidden="true">→</span>
-              </Button>
+              <div className="mt-8">
+                <Button href="/guides" variant="secondary">
+                  Explore the learning path <span aria-hidden="true">→</span>
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </ScrollReveal>
       </section>
     </>
   );

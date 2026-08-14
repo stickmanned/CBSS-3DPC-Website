@@ -4,12 +4,12 @@ import { useState } from "react";
 import { club } from "../lib/content";
 import Button from "./Button";
 
-const field =
-  "min-h-12 w-full rounded-xl border border-mist bg-cloud px-4 py-3 text-[16px] text-ink placeholder:text-slate/65 focus:border-navy focus:bg-white focus:outline-none";
+const field = "field";
 const label = "mb-2 block font-display text-[15px] font-bold text-ink";
 
 export default function RequestForm() {
   const [draftOpened, setDraftOpened] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,20 +28,27 @@ export default function RequestForm() {
       "--- Attach your 3D model to this email before sending. ---",
     ].join("\n");
 
-    setDraftOpened(true);
+    // Handing off to a mail client gives no navigation feedback, so the button
+    // has to say "heard you" itself or the click feels like it did nothing.
+    setSubmitting(true);
     window.location.href = `mailto:${club.contactEmail}?subject=${encodeURIComponent(
       `3D print request — ${name}`,
     )}&body=${encodeURIComponent(body)}`;
+
+    window.setTimeout(() => {
+      setSubmitting(false);
+      setDraftOpened(true);
+    }, 700);
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-[var(--radius-card)] border border-mist bg-white p-6 sm:p-8 lg:p-10"
+      className="rounded-[var(--radius-card)] border border-mist bg-white p-6 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-8 lg:p-10"
     >
       <div className="border-b border-mist pb-6">
-        <p className="eyebrow text-slate">Request details</p>
-        <h2 className="mt-3 text-3xl text-ink">Start with what you know.</h2>
+        <p className="eyebrow text-slate">3D Printing Request</p>
+        <h2 className="mt-3 text-3xl text-ink">Custom 3D printing at your fingertips.</h2>
       </div>
 
       <div className="mt-7 grid gap-6 sm:grid-cols-2">
@@ -54,14 +61,14 @@ export default function RequestForm() {
             name="name"
             required
             autoComplete="name"
-            placeholder="Full name"
+            placeholder="John Doe"
             className={field}
           />
         </div>
 
         <div>
           <label className={label} htmlFor="email">
-            School email
+            Email
           </label>
           <input
             id="email"
@@ -71,7 +78,7 @@ export default function RequestForm() {
             autoComplete="email"
             inputMode="email"
             spellCheck={false}
-            placeholder={`name@${club.emailDomain}`}
+            placeholder={`name@mail.com`}
             className={field}
           />
         </div>
@@ -100,7 +107,7 @@ export default function RequestForm() {
 
         <div className="sm:col-span-2">
           <label className={label} htmlFor="details">
-            Project details
+            Project details/additional information
           </label>
           <textarea
             id="details"
@@ -109,7 +116,7 @@ export default function RequestForm() {
             required
             autoComplete="off"
             aria-describedby="details-help"
-            placeholder="What is the object for? Include its approximate size and anything else we should know."
+            placeholder="Custom slicer settings, color(s),  "
             className={`${field} min-h-40 resize-y`}
           />
           <p id="details-help" className="mt-2 text-sm text-slate">
@@ -119,8 +126,17 @@ export default function RequestForm() {
       </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-mist pt-7">
-        <Button type="submit">
-          Continue in email <span aria-hidden="true">→</span>
+        <Button type="submit" disabled={submitting} aria-live="polite">
+          {submitting ? (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              Opening your draft…
+            </>
+          ) : (
+            <>
+              Continue in email <span aria-hidden="true">→</span>
+            </>
+          )}
         </Button>
         <p className="max-w-[38ch] text-sm text-slate">
           We’ll open a draft addressed to the club. Attach your model, review the details,
