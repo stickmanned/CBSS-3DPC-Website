@@ -79,7 +79,7 @@ export default function Guides() {
                 Join weekly 3D printing lessons, challenges, and more!
               </h2>
               <p className="mt-5 max-w-[52ch] text-lg text-white/70">
-                Ready to dive in the world of 3D printing? Join the club and meet us in {club.room} on {club.meets}, {club.time}. 
+                Ready to dive in the world of 3D printing? Join the club and meet us in {club.room} on {club.meets}, {club.time}! 
               </p>
             </div>
             <Button href="/about#join">

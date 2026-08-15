@@ -272,7 +272,6 @@ export async function getAdminRequestDetail(requestId: string) {
       .where(eq(adminUser.active, true))
       .orderBy(asc(adminUser.displayName), asc(adminUser.githubLogin)),
   ]);
-
   const events = eventRows.reduce<
     Array<{
       event: typeof requestEvent.$inferSelect;
