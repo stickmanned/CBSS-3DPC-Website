@@ -5,7 +5,7 @@ import { submitPrintRequest } from "../request/actions";
 import Button from "./Button";
 import ColorPicker, { colorsUnavailableForMaterial } from "./request/ColorPicker";
 import MaterialSelector from "./request/MaterialSelector";
-import ModelFileUpload from "./request/ModelFileUpload";
+import ModelFileUpload, { type ModelFileUploadHandle } from "./request/ModelFileUpload";
 import TurnstileField from "./request/TurnstileField";
 import {
   firstErrorId,
@@ -96,6 +96,7 @@ export default function RequestForm() {
   const pendingRef = useRef(false);
   const formStartedAtRef = useRef(0);
   const emailValueRef = useRef("");
+  const modelUploadRef = useRef<ModelFileUploadHandle>(null);
 
   const [email, setEmail] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -111,6 +112,7 @@ export default function RequestForm() {
   const [formError, setFormError] = useState("");
   const [materialSwitchMessage, setMaterialSwitchMessage] = useState("");
   const [pending, setPending] = useState(false);
+  const [uploadingModel, setUploadingModel] = useState(false);
   const [success, setSuccess] = useState<SuccessState | null>(null);
 
   const emailWarning = getSchoolEmailWarning(email);
@@ -199,6 +201,33 @@ export default function RequestForm() {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
+
+    pendingRef.current = true;
+    setPending(true);
+    setFieldErrors({});
+    setFormError("");
+
+    // A chosen file uploads here, on send, rather than behind its own button.
+    // ensureUploaded() resolves the just-finished (or already-done) upload
+    // directly, so validation below never reads verifiedUpload state that
+    // React hasn't re-rendered yet.
+    let freshUpload = verifiedUpload;
+    if (modelUploadRef.current) {
+      setUploadingModel(true);
+      try {
+        freshUpload = await modelUploadRef.current.ensureUploaded();
+      } catch {
+        // The model upload component already set its own on-page error;
+        // nothing more to add here beyond stopping submission.
+        setUploadingModel(false);
+        pendingRef.current = false;
+        setPending(false);
+        document.getElementById("model-file")?.scrollIntoView({ block: "center" });
+        return;
+      }
+      setUploadingModel(false);
+    }
+
     const clientErrors = validateRequest({
       requesterName: String(formData.get("requesterName") ?? ""),
       requesterEmail: email,
@@ -208,21 +237,19 @@ export default function RequestForm() {
       modelUrl,
       material,
       colorSlugs,
-      verifiedFileToken: verifiedUpload?.verifiedFileToken ?? "",
+      verifiedFileToken: freshUpload?.verifiedFileToken ?? "",
     });
-    if (turnstileSiteKey && !verifiedUpload && !turnstileToken) {
+    if (turnstileSiteKey && !freshUpload && !turnstileToken) {
       clientErrors.turnstile = ["Complete the security check."];
     }
 
     if (Object.keys(clientErrors).length > 0) {
+      pendingRef.current = false;
+      setPending(false);
       showErrors(clientErrors, "Check the highlighted fields before sending your request.");
       return;
     }
 
-    pendingRef.current = true;
-    setPending(true);
-    setFieldErrors({});
-    setFormError("");
     if (!idempotencyRef.current) idempotencyRef.current = makeIdempotencyKey();
 
     const payload = formData;
@@ -237,10 +264,10 @@ export default function RequestForm() {
     payload.set("formStartedAt", String(getFormStartedAt()));
     payload.set("website", website);
 
-    if (verifiedUpload) {
-      payload.set("verifiedFileToken", verifiedUpload.verifiedFileToken);
-      payload.set("bboxMm", JSON.stringify(verifiedUpload.bboxMm));
-      if (verifiedUpload.thumbnail) payload.set("thumbnail", verifiedUpload.thumbnail);
+    if (freshUpload) {
+      payload.set("verifiedFileToken", freshUpload.verifiedFileToken);
+      payload.set("bboxMm", JSON.stringify(freshUpload.bboxMm));
+      if (freshUpload.thumbnail) payload.set("thumbnail", freshUpload.thumbnail);
     } else {
       payload.delete("verifiedFileToken");
       payload.delete("bboxMm");
@@ -636,6 +663,7 @@ export default function RequestForm() {
         </div>
 
         <ModelFileUpload
+          ref={modelUploadRef}
           email={email}
           getFormStartedAt={getFormStartedAt}
           website={website}
@@ -680,7 +708,11 @@ export default function RequestForm() {
 
         <div className="mt-7 flex flex-wrap items-center gap-4 border-t border-mist pt-7">
           <Button type="submit" disabled={pending}>
-            {pending ? (
+            {uploadingModel ? (
+              <>
+                <span className="spinner" aria-hidden="true" /> Uploading model…
+              </>
+            ) : pending ? (
               <>
                 <span className="spinner" aria-hidden="true" /> Sending request…
               </>
@@ -697,7 +729,7 @@ export default function RequestForm() {
       </div>
 
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {pending ? "Sending print request." : ""}
+        {uploadingModel ? "Uploading model." : pending ? "Sending print request." : ""}
       </p>
     </form>
   );

@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import { uploadModelFile } from "../../lib/client-upload";
 import ModelPreview from "./ModelPreview";
 import { formatFileSize, isValidEmail, validateModelFile } from "./request-form-utils";
@@ -8,7 +16,30 @@ import type { PreviewMetadata, VerifiedUpload } from "./types";
 
 type Stage = "idle" | "parsing" | "ready" | "uploading" | "uploaded" | "error";
 
-export default function ModelFileUpload({
+/**
+ * There is no manual "upload" trigger in the UI: the form calls
+ * ensureUploaded() itself when the requester sends the request. Rejecting
+ * (rather than resolving null) on a blocked or failed attempt lets the form
+ * stop submission and leave its own error message in place as the reason.
+ */
+export type ModelFileUploadHandle = {
+  ensureUploaded: () => Promise<VerifiedUpload | null>;
+};
+
+const ModelFileUpload = forwardRef<
+  ModelFileUploadHandle,
+  {
+    email: string;
+    getFormStartedAt: () => number;
+    website: string;
+    turnstileRequired: boolean;
+    turnstileToken: string;
+    onTurnstileConsumed: () => void;
+    disabled: boolean;
+    error?: string;
+    onVerified: (upload: VerifiedUpload | null) => void;
+  }
+>(function ModelFileUpload({
   email,
   getFormStartedAt,
   website,
@@ -18,17 +49,7 @@ export default function ModelFileUpload({
   disabled,
   error,
   onVerified,
-}: {
-  email: string;
-  getFormStartedAt: () => number;
-  website: string;
-  turnstileRequired: boolean;
-  turnstileToken: string;
-  onTurnstileConsumed: () => void;
-  disabled: boolean;
-  error?: string;
-  onVerified: (upload: VerifiedUpload | null) => void;
-}) {
+}, ref) {
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -109,8 +130,8 @@ export default function ModelFileUpload({
     setLocalError("");
     setNotice(
       metadata.webglAvailable
-        ? "Model checked locally. Upload it when you are ready."
-        : "Model checked locally. The visual preview is unavailable, but you can still upload it.",
+        ? "Model checked locally. It uploads automatically when you send the request."
+        : "Model checked locally. The visual preview is unavailable, but the file will still upload when you send the request.",
     );
   }, []);
 
@@ -121,17 +142,35 @@ export default function ModelFileUpload({
     clearVerification();
   }, [clearVerification]);
 
-  async function startUpload() {
-    if (!file || !preview || disabled || stage === "uploading") return;
+  /**
+   * Called by the form on submit, not by any button in this component.
+   * Resolves null when there is nothing to upload (no file chosen, or an
+   * earlier call already finished) so link-only and already-uploaded
+   * requests pass straight through. Rejects when a file is chosen but
+   * something blocks starting or completing the upload; the reason is left
+   * in this component's own error state rather than the rejection value, so
+   * the form only needs to know "stop submitting", not "why."
+   */
+  const ensureUploaded = useCallback(async (): Promise<VerifiedUpload | null> => {
+    if (!file) return null;
+    if (verified && !verificationNeedsRefresh) return verified;
+    if (stage === "uploading") {
+      setLocalError("The model is still uploading. Try sending the request again in a moment.");
+      throw new Error("upload_in_progress");
+    }
+    if (!preview) {
+      setLocalError("The model is still being checked in this browser. Try sending the request again in a moment.");
+      throw new Error("preview_not_ready");
+    }
     if (!isValidEmail(email)) {
-      setLocalError("Enter a valid email above before uploading. The private file must be tied to your request.");
+      setLocalError("Enter a valid email above before sending. The private file must be tied to your request.");
       document.getElementById("requesterEmail")?.focus();
-      return;
+      throw new Error("invalid_email");
     }
     if (turnstileRequired && !turnstileToken) {
-      setLocalError("Complete the security check below before uploading your model.");
+      setLocalError("Complete the security check below before sending your request.");
       document.getElementById("security-check")?.scrollIntoView({ block: "center" });
-      return;
+      throw new Error("turnstile_required");
     }
 
     const controller = new AbortController();
@@ -168,17 +207,37 @@ export default function ModelFileUpload({
       setStage("uploaded");
       setProgress(100);
       setNotice("Upload complete and verified. The model is ready to include with this request.");
+      return next;
     } catch (uploadError: unknown) {
-      if (uploadError instanceof DOMException && uploadError.name === "AbortError") return;
+      if (uploadError instanceof DOMException && uploadError.name === "AbortError") {
+        throw uploadError;
+      }
       setStage("error");
       setLocalError(
         uploadError instanceof Error
           ? uploadError.message
-          : "The model could not be uploaded. Your form details are still here; try again.",
+          : "The model could not be uploaded. Your form details are still here; send the request again to retry.",
       );
       clearVerification();
+      throw uploadError;
     }
-  }
+  }, [
+    clearVerification,
+    email,
+    file,
+    getFormStartedAt,
+    onTurnstileConsumed,
+    onVerified,
+    preview,
+    stage,
+    turnstileRequired,
+    turnstileToken,
+    verificationNeedsRefresh,
+    verified,
+    website,
+  ]);
+
+  useImperativeHandle(ref, () => ({ ensureUploaded }), [ensureUploaded]);
 
   function clearFile() {
     abortRef.current?.abort();
@@ -307,17 +366,6 @@ export default function ModelFileUpload({
               </div>
             )}
 
-            {(displayedStage === "ready" || (displayedStage === "error" && preview)) && (
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={startUpload}
-                className="btn btn--secondary mt-4"
-              >
-                {displayedStage === "error" ? "Try upload again" : "Upload this model"}
-              </button>
-            )}
-
             {displayedStage === "uploaded" && verified && (
               <p className="mt-4 flex items-center gap-2 font-display text-sm font-bold text-navy">
                 <span aria-hidden="true" className="grid size-6 place-items-center rounded-full bg-navy text-xs text-white">
@@ -345,4 +393,6 @@ export default function ModelFileUpload({
       </p>
     </div>
   );
-}
+});
+
+export default ModelFileUpload;
