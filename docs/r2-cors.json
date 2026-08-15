@@ -1,6 +1,7 @@
 [
   {
     "AllowedOrigins": [
+      "https://cbss-3dpc-website.vercel.app",
       "http://localhost:3000"
     ],
     "AllowedMethods": ["PUT"],
