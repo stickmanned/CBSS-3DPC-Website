@@ -8,6 +8,7 @@ import {
   gte,
   inArray,
   sql,
+  type AnyColumn,
   type SQL,
 } from "drizzle-orm";
 import { requireAdmin } from "@/app/lib/auth";
@@ -26,8 +27,45 @@ import {
   type RequestStatus,
 } from "@/app/lib/queue/domain";
 
-export type QueueSort = "created" | "deadline" | "quantity" | "status";
+export type QueueSort = "urgency" | "created" | "deadline" | "quantity" | "status";
 export type SortDirection = "asc" | "desc";
+export type DeadlineRisk = "overdue" | "soon" | "clear" | "none";
+
+/** Everything an administrator can still act on. Closed states are excluded. */
+export const ACTIONABLE_STATUSES: readonly RequestStatus[] = [
+  "submitted",
+  "under_review",
+  "approved",
+  "needs_changes",
+  "queued",
+  "printing",
+  "print_failed",
+  "ready_for_pickup",
+];
+
+/**
+ * How long an open request may sit untouched before the dashboard calls it out.
+ * Chosen so a request submitted on a Friday surfaces by the club's Tuesday
+ * meeting; there is no external policy behind it, so it is safe to change.
+ */
+export const STALE_AFTER_DAYS = 3;
+
+/** A deadline this close counts as at-risk rather than comfortable. */
+export const DEADLINE_SOON_DAYS = 3;
+
+export const PIPELINE_LIMIT = 250;
+
+export const PRESET_VIEWS = ["focus", "triage", "printing", "ready", "overdue", "all"] as const;
+export type PresetView = (typeof PRESET_VIEWS)[number] | "custom";
+
+const VIEW_STATUSES: Record<(typeof PRESET_VIEWS)[number], readonly RequestStatus[]> = {
+  focus: ACTIONABLE_STATUSES,
+  triage: ["submitted", "under_review", "needs_changes"],
+  printing: ["approved", "queued", "printing", "print_failed"],
+  ready: ["ready_for_pickup"],
+  overdue: ACTIONABLE_STATUSES,
+  all: [],
+};
 
 export type DashboardFilters = {
   statuses: RequestStatus[];
@@ -35,8 +73,11 @@ export type DashboardFilters = {
   createdFrom?: string;
   createdTo?: string;
   search?: string;
+  overdueOnly: boolean;
+  stalledOnly: boolean;
   sort: QueueSort;
   direction: SortDirection;
+  view: PresetView;
 };
 
 export type PipelineRow = {
@@ -53,9 +94,68 @@ export type PipelineRow = {
   version: number;
   assigneeName: string | null;
   fileName: string | null;
+  ageDays: number;
+  untouchedDays: number;
+  deadlineRisk: DeadlineRisk;
+};
+
+export type DeliveryReviewRow = {
+  deliveryId: number;
+  requestId: string;
+  ref: string;
+  recipientKind: "requester" | "club";
+  state: "sending" | "uncertain";
+  updatedAt: Date;
+};
+
+export type AttentionSummary = {
+  awaitingTriage: number;
+  stalled: number;
+  overdue: number;
+  deliveriesNeedingReview: number;
+  deliveryReviewRows: DeliveryReviewRow[];
 };
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Today in the club's timezone, as a bare date — the anchor for every deadline comparison. */
+const LOCAL_TODAY = sql`(now() at time zone 'America/Vancouver')::date`;
+
+const WHOLE_DAYS_SINCE = (column: AnyColumn) =>
+  sql<number>`greatest(0, floor(extract(epoch from (now() - ${column})) / 86400)::int)`;
+
+/** Null deadlines and closed requests carry no risk; everything else is dated. */
+const DEADLINE_RISK = sql<DeadlineRisk>`
+  case
+    when ${printRequest.deadline} is null then 'none'
+    when ${printRequest.currentStatus} in ('picked_up', 'declined') then 'none'
+    when ${printRequest.deadline} < ${LOCAL_TODAY} then 'overdue'
+    when ${printRequest.deadline} <= ${LOCAL_TODAY} + ${DEADLINE_SOON_DAYS}::int then 'soon'
+    else 'clear'
+  end
+`;
+
+const IS_OVERDUE = sql`
+  ${printRequest.deadline} is not null
+    and ${printRequest.currentStatus} not in ('picked_up', 'declined')
+    and ${printRequest.deadline} < ${LOCAL_TODAY}
+`;
+
+/** Open, but nobody has moved it or written a note in STALE_AFTER_DAYS. */
+const IS_STALLED = sql`
+  ${printRequest.currentStatus} not in ('picked_up', 'declined')
+    and ${printRequest.updatedAt} <= now() - make_interval(days => ${STALE_AFTER_DAYS}::int)
+`;
+
+/** Overdue first, then soonest deadline, then oldest — the order work should be picked up in. */
+const URGENCY_ORDER = sql`
+  case
+    when ${printRequest.currentStatus} in ('picked_up', 'declined') then 3
+    when ${printRequest.deadline} is null then 2
+    when ${printRequest.deadline} < ${LOCAL_TODAY} then 0
+    else 1
+  end
+`;
 
 function one(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -69,9 +169,25 @@ function many(value: string | string[] | undefined): string[] {
 export function parseDashboardFilters(
   raw: Record<string, string | string[] | undefined>,
 ): DashboardFilters {
-  const statuses = many(raw.status).filter((value): value is RequestStatus =>
-    (REQUEST_STATUSES as readonly string[]).includes(value),
-  );
+  const explicitStatuses = [
+    ...new Set(
+      many(raw.status).filter((value): value is RequestStatus =>
+        (REQUEST_STATUSES as readonly string[]).includes(value),
+      ),
+    ),
+  ];
+  const viewValue = one(raw.view);
+  const preset = (PRESET_VIEWS as readonly string[]).includes(viewValue ?? "")
+    ? (viewValue as (typeof PRESET_VIEWS)[number])
+    : undefined;
+
+  // An explicit status selection always wins; otherwise a preset decides, and
+  // the default is the actionable set rather than every request ever filed.
+  const view: PresetView = explicitStatuses.length ? "custom" : (preset ?? "focus");
+  const statuses = explicitStatuses.length
+    ? explicitStatuses
+    : [...VIEW_STATUSES[preset ?? "focus"]];
+
   const materialValue = one(raw.material);
   const material = (MATERIAL_KINDS as readonly string[]).includes(materialValue ?? "")
     ? (materialValue as MaterialKind)
@@ -79,22 +195,23 @@ export function parseDashboardFilters(
   const createdFromValue = one(raw.from);
   const createdToValue = one(raw.to);
   const searchMatch = one(raw.search)?.trim().match(/^CBSS-([0-9]{1,4})$/i);
-  const searchValue = searchMatch
-    ? `CBSS-${searchMatch[1].padStart(4, "0")}`
-    : undefined;
+  const searchValue = searchMatch ? `CBSS-${searchMatch[1].padStart(4, "0")}` : undefined;
   const sortValue = one(raw.sort);
   const directionValue = one(raw.direction);
 
   return {
-    statuses: [...new Set(statuses)],
+    statuses,
     material,
     createdFrom: createdFromValue && DATE_ONLY.test(createdFromValue) ? createdFromValue : undefined,
     createdTo: createdToValue && DATE_ONLY.test(createdToValue) ? createdToValue : undefined,
     search: searchValue || undefined,
-    sort: ["created", "deadline", "quantity", "status"].includes(sortValue ?? "")
+    overdueOnly: view === "overdue" || one(raw.overdue) === "1",
+    stalledOnly: one(raw.stale) === "1",
+    sort: ["urgency", "created", "deadline", "quantity", "status"].includes(sortValue ?? "")
       ? (sortValue as QueueSort)
-      : "created",
+      : "urgency",
     direction: directionValue === "asc" ? "asc" : "desc",
+    view,
   };
 }
 
@@ -104,6 +221,8 @@ function pipelineConditions(filters: DashboardFilters): SQL[] {
     conditions.push(inArray(printRequest.currentStatus, filters.statuses));
   }
   if (filters.material) conditions.push(eq(printRequest.material, filters.material));
+  if (filters.overdueOnly) conditions.push(IS_OVERDUE);
+  if (filters.stalledOnly) conditions.push(IS_STALLED);
   if (filters.createdFrom) {
     conditions.push(
       sql`(${printRequest.createdAt} at time zone 'America/Vancouver')::date >= ${filters.createdFrom}::date`,
@@ -123,13 +242,35 @@ function pipelineConditions(filters: DashboardFilters): SQL[] {
 async function listPipeline(filters: DashboardFilters): Promise<PipelineRow[]> {
   const database = getDatabase();
   const conditions = pipelineConditions(filters);
-  const column = {
-    created: printRequest.createdAt,
-    deadline: printRequest.deadline,
-    quantity: printRequest.quantity,
-    status: printRequest.currentStatus,
-  }[filters.sort];
-  const order = filters.direction === "asc" ? asc(column) : desc(column);
+
+  const ordering =
+    filters.sort === "urgency"
+      ? [
+          // Urgency is a fixed triage order, so the direction toggle does not apply.
+          asc(URGENCY_ORDER),
+          asc(printRequest.deadline),
+          asc(printRequest.createdAt),
+        ]
+      : [
+          filters.direction === "asc"
+            ? asc(
+                {
+                  created: printRequest.createdAt,
+                  deadline: printRequest.deadline,
+                  quantity: printRequest.quantity,
+                  status: printRequest.currentStatus,
+                }[filters.sort],
+              )
+            : desc(
+                {
+                  created: printRequest.createdAt,
+                  deadline: printRequest.deadline,
+                  quantity: printRequest.quantity,
+                  status: printRequest.currentStatus,
+                }[filters.sort],
+              ),
+          desc(printRequest.createdAt),
+        ];
 
   return database
     .select({
@@ -146,13 +287,58 @@ async function listPipeline(filters: DashboardFilters): Promise<PipelineRow[]> {
       version: printRequest.version,
       assigneeName: adminUser.displayName,
       fileName: requestFile.originalName,
+      ageDays: WHOLE_DAYS_SINCE(printRequest.createdAt),
+      untouchedDays: WHOLE_DAYS_SINCE(printRequest.updatedAt),
+      deadlineRisk: DEADLINE_RISK,
     })
     .from(printRequest)
     .leftJoin(adminUser, eq(adminUser.id, printRequest.assigneeId))
     .leftJoin(requestFile, eq(requestFile.requestId, printRequest.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(order, desc(printRequest.createdAt), asc(printRequest.ref))
-    .limit(250);
+    .orderBy(...ordering, asc(printRequest.ref))
+    .limit(PIPELINE_LIMIT);
+}
+
+async function attentionSummary(): Promise<AttentionSummary> {
+  const database = getDatabase();
+  const reviewStates = ["sending", "uncertain"] as const;
+
+  const [counts, deliveryCount, deliveryRows] = await Promise.all([
+    database
+      .select({
+        awaitingTriage: sql<number>`count(*) filter (where ${printRequest.currentStatus} = 'submitted')::int`,
+        stalled: sql<number>`count(*) filter (where ${IS_STALLED})::int`,
+        overdue: sql<number>`count(*) filter (where ${IS_OVERDUE})::int`,
+      })
+      .from(printRequest),
+    database
+      .select({ total: sql<number>`count(*)::int` })
+      .from(emailDelivery)
+      .where(inArray(emailDelivery.state, [...reviewStates])),
+    database
+      .select({
+        deliveryId: emailDelivery.id,
+        requestId: printRequest.id,
+        ref: printRequest.ref,
+        recipientKind: emailDelivery.recipientKind,
+        state: emailDelivery.state,
+        updatedAt: emailDelivery.updatedAt,
+      })
+      .from(emailDelivery)
+      .innerJoin(requestEvent, eq(requestEvent.id, emailDelivery.eventId))
+      .innerJoin(printRequest, eq(printRequest.id, requestEvent.requestId))
+      .where(inArray(emailDelivery.state, [...reviewStates]))
+      .orderBy(asc(emailDelivery.updatedAt))
+      .limit(6),
+  ]);
+
+  return {
+    awaitingTriage: counts[0]?.awaitingTriage ?? 0,
+    stalled: counts[0]?.stalled ?? 0,
+    overdue: counts[0]?.overdue ?? 0,
+    deliveriesNeedingReview: deliveryCount[0]?.total ?? 0,
+    deliveryReviewRows: deliveryRows as DeliveryReviewRow[],
+  };
 }
 
 async function dashboardMetrics() {
@@ -231,13 +417,15 @@ async function dashboardMetrics() {
     },
   };
 }
+
 export async function getAdminDashboard(filters: DashboardFilters) {
   const admin = await requireAdmin();
-  const [pipeline, metrics] = await Promise.all([
+  const [pipeline, attention, metrics] = await Promise.all([
     listPipeline(filters),
+    attentionSummary(),
     dashboardMetrics(),
   ]);
-  return { admin, pipeline, ...metrics };
+  return { admin, pipeline, attention, ...metrics };
 }
 
 export async function getAdminRequestDetail(requestId: string) {

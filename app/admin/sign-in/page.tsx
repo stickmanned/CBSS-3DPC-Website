@@ -14,13 +14,37 @@ function authIsConfigured() {
   );
 }
 
-async function githubSignInAction() {
-  "use server";
-  if (!authIsConfigured()) return;
-  await signIn("github", { redirectTo: "/admin" });
+/**
+ * The proxy now forwards the requested path here, so this value is reachable by
+ * anyone who can craft a link. Only in-app admin paths are honoured — a scheme,
+ * a protocol-relative `//host`, or a backslash would otherwise turn the club's
+ * sign-in page into an open redirector.
+ */
+function safeCallbackPath(value: unknown): string {
+  if (typeof value !== "string") return "/admin";
+  // The boundary matters: "/adminredirect@host" is not the admin area.
+  if (!/^\/admin(?:[/?#]|$)/.test(value)) return "/admin";
+  if (value.startsWith("//") || value.includes("\\")) return "/admin";
+  // Control characters and spaces can smuggle a second path or header.
+  if (/[\u0000-\u0020\u007f]/.test(value)) return "/admin";
+  return value;
 }
 
-export default function AdminSignInPage() {
+async function githubSignInAction(formData: FormData) {
+  "use server";
+  if (!authIsConfigured()) return;
+  await signIn("github", { redirectTo: safeCallbackPath(formData.get("callbackUrl")) });
+}
+
+export default async function AdminSignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const raw = await searchParams;
+  const callbackUrl = safeCallbackPath(
+    Array.isArray(raw.callbackUrl) ? raw.callbackUrl[0] : raw.callbackUrl,
+  );
   const configured = authIsConfigured();
   return (
     <div className="build-grid min-h-[70vh] px-5 py-16 sm:py-24">
@@ -34,6 +58,7 @@ export default function AdminSignInPage() {
 
         {configured ? (
           <form action={githubSignInAction} className="mt-8">
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
             <button type="submit" className="btn btn--dark btn--lg w-full">
               Continue with GitHub <span aria-hidden="true">→</span>
             </button>

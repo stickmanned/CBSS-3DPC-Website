@@ -12,7 +12,11 @@ const navigationProxy = auth((request) => {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const signIn = new URL("/api/auth/signin", request.url);
+  // Send people to the club's own sign-in page, not Auth.js's built-in one.
+  // That page signs in through a server action, which calls Auth() directly;
+  // the built-in page posts to /api/auth/signin/*, where requireSameOrigin can
+  // refuse the navigation and paint raw JSON over the browser window.
+  const signIn = new URL("/admin/sign-in", request.url);
   signIn.searchParams.set(
     "callbackUrl",
     `${request.nextUrl.pathname}${request.nextUrl.search}`,

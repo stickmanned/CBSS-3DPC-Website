@@ -23,8 +23,10 @@ export async function POST(request: NextRequest) {
   if (!isAuthConfigured()) return unavailable();
   try {
     requireSameOrigin(request);
-  } catch {
-    return genericError(403);
+  } catch (error) {
+    // Every other route records why it refused; this one used to swallow it,
+    // which made a failed sign-in indistinguishable from a forged request.
+    return genericError(403, { route: "api/auth", error });
   }
   return handlers.POST(request);
 }

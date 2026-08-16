@@ -33,7 +33,7 @@ export default function About() {
     <>
       <PageIntro
         label="About the club"
-        title="We print stuff. Come print stuff with us."
+        title="We design, model, and print stuff."
         lead={`${club.name} is where students learn and explore 3D printing, see how digital models become physical objects, and work through the challenges between the two.`}
       />
 
@@ -123,13 +123,13 @@ export default function About() {
                 href={`mailto:${club.contactEmail}`}
                 className="footer-link break-all font-display text-lg font-bold"
               >
-                {club.contactEmail}
+                Contact William - {club.contactEmail}
               </a>
               <a
-                href="mailto:080-pmaroufi@sd43.bc.ca"
+                href={`mailto:080-pmaroufi@${club.emailDomain}`}
                 className="footer-link break-all font-display text-lg font-bold"
               >
-                080-pmaroufi@sd43.bc.ca
+                Contact Paya - 080-pmaroufi@{club.emailDomain}
               </a>
             </div>
           </section>

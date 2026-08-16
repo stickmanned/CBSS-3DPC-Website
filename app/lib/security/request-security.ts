@@ -1,9 +1,15 @@
 import { isIP } from "node:net";
 import { NextResponse } from "next/server";
 
+/**
+ * The `reason` never reaches the client — `genericError` still answers with the
+ * same opaque body. It exists so the server-side log names which check refused
+ * the request; without it every rejection here is indistinguishable from the
+ * others and an operator has nothing to act on.
+ */
 export class UnsafeRequestError extends Error {
-  constructor() {
-    super("The request could not be accepted.");
+  constructor(readonly reason = "unspecified") {
+    super(`The request could not be accepted (${reason}).`);
     this.name = "UnsafeRequestError";
   }
 }
@@ -11,7 +17,9 @@ export class UnsafeRequestError extends Error {
 function configuredOrigin(): string | null {
   const raw = process.env.APP_ORIGIN ?? process.env.NEXT_PUBLIC_SITE_URL;
   if (!raw) {
-    if (process.env.NODE_ENV === "production") throw new UnsafeRequestError();
+    if (process.env.NODE_ENV === "production") {
+      throw new UnsafeRequestError("app-origin-not-configured");
+    }
     return null;
   }
 
@@ -23,17 +31,18 @@ function configuredOrigin(): string | null {
       url.password ||
       (url.protocol !== "https:" && !(local && process.env.NODE_ENV !== "production"))
     ) {
-      throw new UnsafeRequestError();
+      throw new UnsafeRequestError(`app-origin-unusable value=${url.origin}`);
     }
     return url.origin;
-  } catch {
-    throw new UnsafeRequestError();
+  } catch (error) {
+    if (error instanceof UnsafeRequestError) throw error;
+    throw new UnsafeRequestError("app-origin-unparsable");
   }
 }
 
 export function requireSameOrigin(request: Request): void {
   const origin = request.headers.get("origin");
-  if (!origin) throw new UnsafeRequestError();
+  if (!origin) throw new UnsafeRequestError("missing-origin-header");
 
   let suppliedOrigin: string;
   let requestOrigin: string;
@@ -41,17 +50,21 @@ export function requireSameOrigin(request: Request): void {
     suppliedOrigin = new URL(origin).origin;
     requestOrigin = new URL(request.url).origin;
   } catch {
-    throw new UnsafeRequestError();
+    throw new UnsafeRequestError("unparsable-origin");
   }
 
   const expected = configuredOrigin() ?? requestOrigin;
   if (suppliedOrigin !== expected || suppliedOrigin !== requestOrigin) {
-    throw new UnsafeRequestError();
+    // Origins are not secrets and naming all three is the only way to tell a
+    // misconfigured APP_ORIGIN apart from a proxy rewriting the request URL.
+    throw new UnsafeRequestError(
+      `origin-mismatch browser=${suppliedOrigin} configured=${expected} request-url=${requestOrigin}`,
+    );
   }
 
   const fetchSite = request.headers.get("sec-fetch-site");
   if (fetchSite && fetchSite !== "same-origin") {
-    throw new UnsafeRequestError();
+    throw new UnsafeRequestError(`cross-site-fetch sec-fetch-site=${fetchSite}`);
   }
 }
 

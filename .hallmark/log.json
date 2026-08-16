@@ -1,0 +1,12 @@
+[
+  {
+    "date": "2026-08-16",
+    "scope": "app",
+    "macrostructure": "Bento Grid",
+    "theme": "system (app/globals.css)",
+    "enrichment": "none",
+    "designed_as_app": true,
+    "brief": "/admin queue dashboard rebuilt as a triage surface; migrated onto the shipped noticeboard system",
+    "note": "Diversification is INVERTED for this project. app/globals.css is the locked system. Do not rotate macrostructure or theme for admin/marketing routes - consistency is the goal. Admin surfaces may use Geist Mono for tabular figures; marketing surfaces may not."
+  }
+]
