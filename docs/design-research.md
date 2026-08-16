@@ -1,9 +1,38 @@
 # Design research: CBSS 3D Printing Club
 
+> [!WARNING]
+> **SUPERSEDED — 2026-08-15. This is a historical record, not the brief.**
+>
+> The "Precision in Motion" direction below was built and then rejected. In
+> William's words, the result "feels soulless and looks like a startup website"
+> rather than a school club site. **Do not rebuild toward it.**
+>
+> **Why it missed.** The reference set is national nonprofits and product
+> companies — organizations whose design problem is establishing credibility
+> with strangers at scale. A school club's problem is the opposite: a student
+> who already walks past Room 113 every day needs the club to feel
+> approachable. Every recommendation here is a credibility-with-strangers
+> move, correctly executed against the wrong audience. In practice that
+> produced oversized type, 21 uppercase eyebrow labels, blueprint-grid
+> backdrops, and a stock photo of a stranger's hand in the About hero while
+> the one real student print sat cropped near the bottom of the homepage.
+>
+> **What replaced it.** A playful, second-person, noticeboard register closer
+> to Hack Club: paper ground, a palette drawn from the filament the club
+> actually stocks, moderate type with character, and real inventory doing the
+> work photography can't do yet. The primary job of the site is **getting
+> students to join**, not taking print requests. The live direction is
+> recorded in the Hallmark stamp at the top of `app/globals.css`.
+>
+> **Still worth reading below:** the Webby judging criteria, the accessibility
+> and performance notes, and the reference table's *transferable lessons*.
+> Those survive the change of direction. The palette, type scale, and
+> macrostructure recommendations do not.
+
 **Research date:** 2026-08-13  
 **Scope:** Current official websites and first-party Webby Awards pages across nonprofit, education, technology, startup, and community categories. The aim is to extract transferable principles, not reproduce another site's layout.
 
-## Executive recommendation
+## Executive recommendation *(superseded — see the warning above)*
 
 Give the club a **mature maker-lab identity**: editorial restraint, oversized type, authentic project imagery, and one memorable “layer by layer” interaction. The first viewport should make two actions unmistakable—**Request a print** and **Join the club**—while showing the meeting facts immediately. Interactivity should demonstrate what the club does, not exist as decoration.
 

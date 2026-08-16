@@ -1,31 +1,62 @@
 @import "tailwindcss";
 
+/* Hallmark · genre: playful · macrostructure: Bento Grid (collage treatment)
+ * theme: custom · nav: N7 Brutal slab · footer: Ft8 Marquee · enrichment: none
+ * vibe: "school club noticeboard, made by teenagers"
+ * paper oklch(97% 0.005 106) · accent oklch(82% 0.16 88) warm
+ * display Gabarito · body Atkinson Hyperlegible · no mono on these pages
+ */
 /* ---------------------------------------------------------------
-   CBSS 3DPC — Precision in Motion
+   CBSS 3DPC — Printed Here
 
-   The visual language comes from additive manufacturing: measured
-   grids, horizontal layer lines, technical labels, and one vivid
-   signal colour. Real project photography supplies everything else.
+   The palette is not invented. Every accent below is a real filament
+   from app/lib/filament-colors.ts — the same 238 the request form
+   offers — so the site is coloured in the plastic the club actually
+   prints with. Names kept alongside the hex on purpose: they are the
+   reason these values are these values.
+
+   Structure is a noticeboard: blocks of different sizes, pinned at
+   slight angles, no uniform cards, no drop shadows.
+
+   TYPE RULE, learned the hard way: there is no monospace on the
+   marketing pages. Small uppercase mono labels are a developer-tool
+   voice and nothing here is code — that single choice is what made an
+   earlier pass of this design read as machine-generated. Labels are
+   the display face, small, in sentence case. The sticker gives a label
+   its distinctness; the typeface does not have to.
    --------------------------------------------------------------- */
 @theme {
+  /* --- Ground and ink ------------------------------------------------- */
   --color-snow: #ffffff;
-  --color-cloud: #f2f5fa;
-  --color-mist: #e1e8f3;
-  --color-navy: #213366;
-  --color-ink: #12172b;
-  --color-slate: #56637f;
-  --color-signal: #ffc93c;
+  --color-paper: #f7f7f2; /* filament: Jade White */
+  --color-cloud: #efefe6; /* filament: Jade White, one step down */
+  --color-mist: #ddddd2;
+  --color-navy: #213366; /* club identity, retained */
+  --color-ink: #1b2233;
+  --color-slate: #5c6274;
 
-  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-body: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* --- Accents · all real stocked filament ---------------------------- */
+  --color-signal: #f5c21b; /* filament: Sunflower Yellow */
+  --color-mandarin: #fc9257; /* filament: Mandarin Orange */
+  --color-mint: #9ad0c0; /* filament: Mint Green */
+  --color-terracotta: #b15533; /* filament: Terracotta */
+
+  --font-display: var(--font-gabarito), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-atkinson), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Retained for app/admin/** and app/status/** only, where the values
+     really are tabular data. Never on the marketing pages. */
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
 
-  --radius-card: 20px;
-  --radius-pill: 999px;
+  /* --- Radius by role, not by reflex ---------------------------------- */
+  --radius-card: 6px;
+  --radius-sticker: 3px;
+  --radius-chip: 4px;
+  --radius-pill: 999px; /* retained: status pills, admin, request form */
 }
 
 :root {
-  --header-height: 4.5rem;
+  /* Main row + the meeting-facts slab above it. */
+  --header-height: 6.25rem;
 
   /* ---- Motion system -------------------------------------------------
      Interaction feel is timing, not decoration. Two rules govern it:
@@ -72,17 +103,18 @@
 html {
   scroll-behavior: smooth;
   color-scheme: light;
-  background: var(--color-snow);
+  background: var(--color-paper);
+  overflow-x: clip;
 }
 
 body {
   min-width: 320px;
   overflow-x: clip;
-  background: var(--color-snow);
+  background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-body);
   font-size: 17px;
-  line-height: 1.58;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -92,14 +124,19 @@ body {
   color: var(--color-ink);
 }
 
+/* Display type is loud in weight and character, not in size. The old scale
+   ran to 7.25rem, which is billboard territory and read as agency budget.
+   Bricolage carries the personality so the point size does not have to. */
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  font-weight: 760;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
   text-wrap: balance;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 p {
@@ -204,8 +241,8 @@ button {
     gap: 0.5rem;
     min-height: 3rem;
     padding: 0.75rem 1.5rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-pill);
+    border: 2px solid var(--color-ink);
+    border-radius: var(--radius-card);
     font-family: var(--font-display);
     font-size: 15px;
     font-weight: 700;
@@ -738,22 +775,35 @@ button {
   animation: hero-fade-up 650ms cubic-bezier(0.16, 1, 0.3, 1) 320ms both;
 }
 
+/* Sticker drop, not a corporate fade-up. The old reveal ran on 17 elements
+   with an identical 18px slide, which stopped meaning "look here" and started
+   meaning "this page was assembled". Now it lands like something pinned to a
+   board: a short drop with a settle, used three times per page at most, and
+   switched off entirely on phones where it fights the scroll physics. */
 .reveal {
   opacity: 0;
-  transform: translateY(18px);
-  transition: opacity 650ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 650ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(10px) rotate(var(--reveal-tilt, -0.6deg));
+  transition: opacity 420ms var(--ease-out), transform 520ms var(--ease-spring);
 }
 
 .reveal.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) rotate(0deg);
 }
 
-.reveal-delay-1 { transition-delay: 90ms; }
-.reveal-delay-2 { transition-delay: 180ms; }
-.reveal-delay-3 { transition-delay: 270ms; }
-.reveal-delay-4 { transition-delay: 360ms; }
+.reveal-delay-1 { transition-delay: 70ms; }
+.reveal-delay-2 { transition-delay: 140ms; }
+.reveal-delay-3 { transition-delay: 210ms; }
+.reveal-delay-4 { transition-delay: 280ms; }
+
+@media (max-width: 40rem) {
+  .reveal,
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
 
 .mobile-menu-enter {
   animation: mobile-menu-enter 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -1336,7 +1386,7 @@ button {
 .footer-link {
   position: relative;
   display: inline-block;
-  color: rgb(255 255 255 / 0.75);
+  color: var(--color-ink);
   transition: color 180ms var(--ease-out), transform 260ms var(--ease-spring);
 }
 
@@ -1355,7 +1405,7 @@ button {
 
 @media (hover: hover) and (pointer: fine) {
   .footer-link:hover {
-    color: var(--color-signal);
+    color: var(--color-navy);
     transform: translateX(2px);
   }
 }
@@ -1480,5 +1530,187 @@ button {
   .layer-stage::after {
     animation: none;
     border-color: rgb(33 51 102 / 0.72);
+  }
+}
+
+/* ---------------------------------------------------------------
+   NOTICEBOARD
+
+   Everything below builds the collage: blocks pinned at slight
+   angles, flat fills, hairline edges, no drop shadows. A sticker is
+   cut with scissors and stuck on slightly crooked — that crookedness
+   is the whole effect, so it must survive on mobile and must not
+   move under prefers-reduced-motion.
+   --------------------------------------------------------------- */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+@media (max-width: 60rem) {
+  .board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 40rem) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.5rem;
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-card);
+  background: var(--color-snow);
+  transition: transform var(--dur-release) var(--ease-spring);
+}
+
+/* The tilt is set per tile with --tilt so no two sit at the same angle.
+   Hover straightens it — the block reacts to you rather than lifting on a
+   shadow, which is the card-hover cliche this is deliberately avoiding. */
+.tile[style*="--tilt"] {
+  transform: rotate(var(--tilt));
+}
+
+.tile:hover,
+.tile:focus-within {
+  transform: rotate(0deg);
+}
+
+.tile--yellow { background: var(--color-signal); }
+.tile--mandarin { background: var(--color-mandarin); }
+.tile--mint { background: var(--color-mint); }
+.tile--navy {
+  background: var(--color-navy);
+  color: var(--color-snow);
+}
+
+.tile--flat {
+  border: none;
+  background: transparent;
+  padding-inline: 0;
+}
+
+/* Span helpers — the grid is irregular on purpose. */
+.tile--w2 { grid-column: span 2; }
+.tile--w3 { grid-column: span 3; }
+.tile--w4 { grid-column: span 4; }
+.tile--h2 { grid-row: span 2; }
+
+@media (max-width: 60rem) {
+  .tile--w3,
+  .tile--w4 { grid-column: span 2; }
+}
+
+@media (max-width: 40rem) {
+  .tile--w2,
+  .tile--w3,
+  .tile--w4 { grid-column: span 1; }
+  .tile--h2 { grid-row: span 1; }
+}
+
+/* A hand-cut label. Display face, small, sentence case — deliberately NOT
+   uppercase mono, which is the pattern that read as machine-generated. */
+.sticker {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-sticker);
+  background: var(--color-signal);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  transform: rotate(-1.5deg);
+}
+
+.sticker--mint { background: var(--color-mint); }
+.sticker--mandarin { background: var(--color-mandarin); }
+
+/* The quiet label, where a sticker would be too loud. Display face so it
+   still has character next to the body copy. */
+.label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-slate);
+}
+
+/* Ft8 marquee. Two identical runs slide the width of one, so the loop is
+   seamless. Stops dead under reduced-motion rather than slowing down. */
+.marquee {
+  overflow: hidden;
+}
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee-slide 90s linear infinite;
+}
+
+.marquee__run {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+@keyframes marquee-slide {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* A filament chip. Square, hairline-edged, and it pops forward rather than
+   growing a shadow. 44px hit target is not possible for 238 of these, so the
+   control is deliberately non-essential: every chip is decorative discovery,
+   and the real colour picker lives in the request form where it has room. */
+.filament-chip {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgb(27 34 51 / 0.28);
+  border-radius: var(--radius-chip);
+  cursor: pointer;
+  transition: transform 140ms var(--ease-out), border-color 140ms var(--ease-out);
+}
+
+.filament-chip:hover,
+.filament-chip:focus-visible {
+  border-color: var(--color-ink);
+  transform: scale(1.35);
+}
+
+@media (max-width: 40rem) {
+  .filament-chip {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .tile:hover,
+  .tile:focus-within {
+    transform: none;
+    transition: none;
+  }
+
+  .marquee__track {
+    animation: none;
+  }
+
+  .filament-chip:hover,
+  .filament-chip:focus-visible {
+    transform: none;
   }
 }

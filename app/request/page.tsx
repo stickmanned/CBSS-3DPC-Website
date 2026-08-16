@@ -31,29 +31,27 @@ export default function Request() {
   return (
     <>
       <PageIntro
-        eyebrow="Print request"
+        label="Print request"
+        accent="yellow"
         title="Tell us what you want to make."
         lead="Share the project, choose a material and colors, then add a model link or file. The club will review what is practical and give you a private page for updates."
       />
 
-      <section className="bg-cloud px-5 py-20 md:py-28">
+      <section className="px-5 py-10">
         <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.35fr_.65fr] lg:items-start">
           <RequestForm />
 
           <aside className="grid gap-5 lg:sticky lg:top-[calc(var(--header-height)+1.5rem)]">
-            <div className="build-grid-dark rounded-[var(--radius-card)] bg-navy p-7 text-white shadow-xl sm:p-9">
-              <p className="eyebrow text-signal">How it works</p>
-              <h2 className="mt-4 text-4xl">From idea to a trackable request.</h2>
+            <div className="tile tile--navy">
+              <h2 className="text-3xl">How it works</h2>
 
-              <ol className="mt-8 border-t border-white/20">
+              <ol className="mt-6 border-t border-white/20">
                 {steps.map((step, index) => (
                   <li
                     key={step.title}
-                    className="grid grid-cols-[2.5rem_1fr] gap-3 border-b border-white/15 py-5"
+                    className="grid grid-cols-[2rem_1fr] gap-3 border-b border-white/15 py-5"
                   >
-                    <span className="font-mono text-xs font-semibold text-signal">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
+                    <span className="text-sm text-signal">{index + 1}</span>
                     <div>
                       <h3 className="text-xl text-white">{step.title}</h3>
                       <p className="mt-2 text-[15px] text-white/70">{step.body}</p>
@@ -62,13 +60,12 @@ export default function Request() {
                 ))}
               </ol>
             </div>
-            <div className="rounded-[var(--radius-card)] bg-signal p-7 text-ink shadow-md sm:p-9">
-              <p className="eyebrow">A useful heads-up</p>
-              <h2 className="mt-4 text-3xl">Every model is different.</h2>
+            <div className="tile tile--yellow">
+              <h2 className="text-3xl text-ink">Every model is different.</h2>
               <p className="mt-4 text-ink/75">
                 Some requests need clarification or model changes before they are ready to print. The status page will show what the club needs from you.
               </p>
-              <p className="mt-6 border-t border-ink/20 pt-5 font-mono text-xs font-semibold uppercase tracking-[0.08em]">
+              <p className="mt-6 border-t border-ink/20 pt-5 text-sm text-ink/70">
                 Club contact · {club.contactEmail}
               </p>
             </div>

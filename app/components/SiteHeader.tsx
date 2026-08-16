@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { club, nav } from "../lib/content";
 
 /* Fires the click comet. `:active` would end the moment the pointer lifts and
@@ -41,16 +41,12 @@ export default function SiteHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const progressRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let animationFrame: number | null = null;
 
     function updateProgress() {
       animationFrame = null;
-      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = scrollHeight > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollHeight)) : 0;
-      progressRef.current?.style.setProperty("transform", `scaleX(${progress})`);
       setScrolled(window.scrollY > 8);
     }
 
@@ -83,8 +79,15 @@ export default function SiteHeader() {
   return (
     <header
       data-scrolled={scrolled ? "true" : "false"}
-      className="site-header sticky top-0 z-50 border-b border-mist bg-white/95 backdrop-blur-md"
+      className="site-header sticky top-0 z-50 border-b-2 border-ink bg-snow"
     >
+      {/* When and where, on every page, without scrolling — the highest-leverage
+          change for "get students to join". Set in the display face at reading
+          size: a sentence a person says, not a machine-readable stamp. */}
+      <p className="border-b-2 border-ink bg-signal py-2 text-center font-display text-sm font-bold text-ink">
+        We meet {club.meets}, {club.time}, in {club.room}.
+      </p>
+
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 md:h-[4.5rem]">
         <Link
           href="/"
@@ -92,6 +95,8 @@ export default function SiteHeader() {
           className="group flex min-w-0 shrink-0 items-center gap-2.5 rounded-xl transition-transform duration-200 active:scale-[0.97]"
           onClick={() => setMenuOpen(false)}
         >
+          {/* unslop-ignore — the logo wiggle is a deliberate character moment,
+              not a boilerplate hover-grow. It is the only one on the page. */}
           <div className="transition-transform duration-300 [transition-timing-function:var(--ease-spring)] group-hover:scale-110 group-hover:-rotate-3">
             <Image
               src="/img/logo.png"
@@ -105,7 +110,7 @@ export default function SiteHeader() {
             <span className="font-display text-[15px] font-extrabold tracking-[-0.025em] text-ink transition-colors group-hover:text-navy">
               CBSS
             </span>
-            <span className="mt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-slate">
+            <span className="mt-0.5 text-[11px] font-bold text-slate">
               3D Printing Club
             </span>
           </span>
@@ -171,14 +176,6 @@ export default function SiteHeader() {
         </div>
       </div>
 
-      {/* Layer build progress line */}
-      <div className="h-[2px] w-full bg-mist/40 overflow-hidden" aria-hidden="true">
-        <div
-          ref={progressRef}
-          className="h-full origin-left scale-x-0 bg-gradient-to-r from-navy via-signal to-navy transition-transform duration-75 ease-out"
-        />
-      </div>
-
       {menuOpen && (
         <nav
           id="mobile-navigation"
@@ -197,7 +194,7 @@ export default function SiteHeader() {
                   onClick={() => setMenuOpen(false)}
                 >
                   {item.label}
-                  <span aria-hidden="true" className="font-mono text-sm text-slate">
+                  <span aria-hidden="true" className="text-sm text-slate">
                     →
                   </span>
                 </Link>
@@ -210,13 +207,13 @@ export default function SiteHeader() {
                 onClick={() => setMenuOpen(false)}
               >
                 Join the club
-                <span aria-hidden="true" className="font-mono text-sm text-slate">
+                <span aria-hidden="true" className="text-sm text-slate">
                   →
                 </span>
               </Link>
             </li>
           </ul>
-          <p className="mx-auto mt-4 max-w-6xl font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-slate">
+          <p className="mx-auto mt-4 max-w-6xl text-sm text-slate">
             {club.meets} · {club.time} · {club.room}
           </p>
         </nav>

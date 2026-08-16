@@ -1,249 +1,168 @@
 import Image from "next/image";
 import Link from "next/link";
 import Button from "./components/Button";
+import FilamentWall from "./components/FilamentWall";
 import LayerStage from "./components/LayerStage";
 import ScrollReveal from "./components/ScrollReveal";
-import { gallery, meetingFacts } from "./lib/content";
+import { club, gallery, guides, meetingFacts } from "./lib/content";
 
-const process = [
-  {
-    label: "Model",
-    title: "Shape the idea.",
-    body: "Start with a part, a character, or a problem and turn it into a digital model.",
-  },
-  {
-    label: "Prepare",
-    title: "Plan the print.",
-    body: "Consider scale, supports, infill, and the details that influence the printed object.",
-  },
-  {
-    label: "Inspect",
-    title: "Learn from the object.",
-    body: "See what worked, adjust what did not, and carry the lesson into the next version.",
-  },
-];
-
+/* The homepage is a noticeboard, not a landing page. Blocks of different
+   sizes, pinned at slightly different angles. The order answers the four
+   questions a student actually has, in the order they have them: what is
+   this, when and where, what do people make, how do I get in. */
 export default function Home() {
   const feature = gallery[0];
 
   return (
-    <>
-      <section className="relative isolate overflow-hidden bg-ink text-white">
-        <div aria-hidden="true" className="build-grid-dark absolute inset-0 -z-10 opacity-50" />
-
-        <div className="mx-auto grid min-h-[calc(100svh-var(--header-height))] max-w-6xl items-center gap-12 px-5 py-14 lg:grid-cols-[1.05fr_.95fr] lg:gap-16 lg:py-16">
-          <div className="relative z-10">
-            <p className="eyebrow text-signal animate-hero-eyebrow">
-              Dr. Charles Best Secondary School 3D Printing Club
-            </p>
-
-            <h1 className="mt-6 max-w-[9.5ch] text-[clamp(3.75rem,8.4vw,7.25rem)] animate-hero-title">
-              Ideas become <span className="text-signal">reality</span> <br></br> here.
-            </h1>
-
-            <p className="mt-7 max-w-[43ch] text-lg leading-relaxed text-white/70 md:text-xl animate-hero-lead">
-              CBSS 3D printing club is a community where students design, model, and 3D print cool stuff.
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-3 animate-hero-cta">
-              <Button href="/request">
-                Request a print <span aria-hidden="true">→</span>
-              </Button>
-              <Button href="/about#join" variant="light">
-                Join the club <span aria-hidden="true">→</span>
-              </Button>
-            </div>
+    <div className="mx-auto max-w-6xl px-5 py-10 md:py-14">
+      <div className="board">
+        {/* What is this */}
+        <section className="tile tile--flat tile--w4">
+          <p className="sticker sticker--mint w-fit">
+            {club.school} · {club.district}
+          </p>
+          <h1 className="mt-5 max-w-[16ch] text-[clamp(2.5rem,6vw,3.75rem)] text-ink">
+            Come make something{" "}
+            <span className="underline decoration-signal decoration-[0.16em] underline-offset-[0.1em]">
+              Tuesday
+            </span>
+            .
+          </h1>
+          <p className="mt-5 max-w-[46ch] text-lg leading-relaxed text-slate">
+            CBSS 3D printing club is a community where students design, model,
+            and 3D print cool stuff.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button href="/about#join">
+              Join the club <span aria-hidden="true">→</span>
+            </Button>
+            <Button href="/request" variant="secondary">
+              Request a print
+            </Button>
           </div>
+        </section>
 
-          <div className="flex justify-center lg:justify-end">
-            <LayerStage />
-          </div>
-        </div>
-      </section>
-
-      <section aria-label="Club meeting details" className="border-b border-mist bg-white">
-        <dl className="mx-auto grid max-w-6xl grid-cols-2 px-5 md:grid-cols-4">
-          {meetingFacts.map((fact, index) => (
-            <div
-              key={fact.label}
-              className={`py-6 md:px-6 transition-colors duration-200 hover:bg-cloud/50 ${
-                index % 2 === 0 ? "pr-4" : "border-l border-mist pl-4"
-              } ${index > 1 ? "border-t border-mist md:border-t-0" : ""} ${
-                index > 0 ? "md:border-l md:border-mist" : "md:pl-0"
-              }`}
-            >
-              <dt className="eyebrow text-slate">{fact.label}</dt>
-              <dd className="mt-2 font-display text-[15px] font-bold leading-snug text-ink sm:text-base">
-                {fact.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      {feature && (
-        <section className="mx-auto max-w-6xl px-5 py-24 md:py-32">
-          <ScrollReveal>
-            <div>
-              <p className="eyebrow text-slate">Student Work</p>
-              <h2 className="mt-5 max-w-[12ch] text-5xl text-ink sm:text-6xl">
-                Designed by CBSS Students
-              </h2>
-              <p className="mt-5 max-w-[48ch] text-lg text-slate">
-                Here&apos;s some of the amazing work that CBSS students have created. Every print tells a story of imagination, problem-solving, and creativity.
-              </p>
-            </div>
-          </ScrollReveal>
-          <ScrollReveal delay={1}>
-            <article className="group mt-12 grid overflow-hidden rounded-[var(--radius-card)] bg-cloud transition-shadow duration-300 hover:shadow-xl lg:grid-cols-[1.28fr_.72fr]">
-              <div className="relative min-h-[28rem] overflow-hidden bg-ink sm:min-h-[36rem] lg:min-h-[42rem]">
+        {/* What people make — the largest block on the page, uncropped */}
+        {feature && (
+          <ScrollReveal className="tile tile--w2 tile--h2 overflow-hidden !p-0">
+            <figure className="flex h-full flex-col">
+              <div className="relative min-h-[22rem] flex-1 bg-cloud">
                 <Image
                   src={feature.image}
                   alt={`${feature.title}, printed by ${feature.printedBy}`}
                   fill
-                  sizes="(max-width: 1024px) 100vw, 720px"
-                  className="project-image object-cover object-[center_38%]"
+                  sizes="(max-width: 1024px) 100vw, 560px"
+                  className="object-cover"
+                  priority
                 />
               </div>
-              <div className="flex flex-col justify-between p-7 sm:p-10 lg:p-12">
-                <div>
-                  <p className="eyebrow text-slate">Name</p>
-                  <h3 className="mt-5 text-5xl text-ink sm:text-6xl">{feature.title}</h3>
-
-                  <dl className="mt-8 grid gap-4 border-y border-mist py-5 font-mono text-xs uppercase tracking-[0.08em] sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                    <div>
-                      <dt className="text-slate">Creator</dt>
-                      <dd className="mt-1 font-semibold text-ink">{feature.printedBy}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate">Material</dt>
-                      <dd className="mt-1 font-semibold text-ink">{feature.material}</dd>
-                    </div>
-                  </dl>
-
-                  <p className="mt-7 text-lg leading-relaxed text-slate">{feature.blurb}</p>
-                </div>
-
-                <Link href="/gallery" className="text-link mt-10 w-fit">
-                  View student work <span aria-hidden="true">→</span>
+              <figcaption className="border-t-2 border-ink p-5">
+                <p className="font-display text-2xl font-bold text-ink">
+                  {feature.title}
+                </p>
+                <p className="mt-1 text-sm text-slate">
+                  Printed by {feature.printedBy} · {feature.material}
+                </p>
+                <p className="mt-3 text-slate">{feature.blurb}</p>
+                <Link href="/gallery" className="text-link mt-4 w-fit">
+                  See the gallery <span aria-hidden="true">→</span>
                 </Link>
-              </div>
-            </article>
+              </figcaption>
+            </figure>
           </ScrollReveal>
+        )}
+
+        {/* When and where — the join decision, in the first screen */}
+        <section
+          className="tile tile--yellow tile--h2 justify-between"
+          style={{ "--tilt": "1.1deg" } as React.CSSProperties}
+          aria-label="Club meeting details"
+        >
+          <p className="font-display text-xl font-bold text-ink">
+            We meet every week.
+          </p>
+          <dl className="mt-6 grid gap-5">
+            {meetingFacts.map((fact) => (
+              <div key={fact.label}>
+                <dt className="text-sm text-ink/60">{fact.label}</dt>
+                <dd className="mt-1 font-display text-lg font-bold leading-snug text-ink">
+                  {fact.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
-      )}
 
-      <section className="bg-cloud py-24 md:py-32">
-        <div className="mx-auto max-w-6xl px-5">
-          <ScrollReveal>
-            <p className="eyebrow text-slate">What&apos;s next?</p>
-            <h2 className="mt-5 max-w-[11ch] text-5xl text-ink sm:text-6xl md:text-7xl">
-              Join our club and community.
-            </h2>
-          </ScrollReveal>
-
-          <div className="mt-12 grid gap-4 lg:grid-cols-12">
-            <ScrollReveal delay={1} className="lg:col-span-7">
-              <Link
-                href="/request"
-                className="pressable group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-signal p-7 text-ink sm:p-10"
-              >
-                <div className="flex items-start justify-between gap-6">
-                  <p className="eyebrow">Request a print</p>
-                  <span
-                    aria-hidden="true"
-                    className="arrow-dot grid size-12 place-items-center rounded-full border border-ink/30 font-mono group-hover:translate-x-1 group-active:translate-x-2"
-                  >
-                    <svg viewBox="0 0 24 24" className="size-5" fill="none">
-                      <path
-                        d="M5 12h14M14 7l5 5-5 5"
-                        stroke="currentColor"
-                        strokeWidth="1.75"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                </div>
-                <div>
-                  <h3 className="max-w-[10ch] text-5xl sm:text-6xl">Have a model ready?</h3>
-                  <p className="mt-5 max-w-[43ch] text-lg text-ink/75">
-                    Share your project details. We’ll review the request and follow up by
-                    email.
-                  </p>
-                </div>
-              </Link>
-            </ScrollReveal>
-
-            <ScrollReveal delay={2} className="lg:col-span-5">
-              <Link
-                href="/about#join"
-                className="pressable group flex min-h-[24rem] flex-col justify-between rounded-[var(--radius-card)] bg-navy p-7 text-white sm:p-10"
-              >
-                <div className="flex items-start justify-between gap-6">
-                  <p className="eyebrow text-white/65">Join the club</p>
-                  <span
-                    aria-hidden="true"
-                    className="arrow-dot arrow-dot--onNavy grid size-12 place-items-center rounded-full border border-white/30 font-mono text-signal group-hover:translate-x-1 group-active:translate-x-2"
-                  >
-                    <svg viewBox="0 0 24 24" className="size-5" fill="none">
-                      <path
-                        d="M5 12h14M14 7l5 5-5 5"
-                        stroke="currentColor"
-                        strokeWidth="1.75"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                </div>
-                <div>
-                  <h3 className="max-w-[9ch] text-5xl sm:text-6xl">Join our Teams</h3>
-                  <p className="mt-5 max-w-[36ch] text-lg text-white/70">
-                    Email 080-wwen@sd43.bc.ca with your name and school email to get added to our Teams.
-                  </p>
-                </div>
-              </Link>
-            </ScrollReveal>
+        {/* How to get in */}
+        <section
+          className="tile tile--navy justify-between"
+          style={{ "--tilt": "-1.4deg" } as React.CSSProperties}
+        >
+          <h2 className="text-3xl">Join our Teams</h2>
+          <div className="mt-4">
+            {/* The address gets its own line: inline, it broke mid-address
+                ("080-" / "wwen@sd43.bc.ca") in the first screen. */}
+            <a
+              href={`mailto:${club.contactEmail}`}
+              className="block w-fit font-bold text-signal underline underline-offset-4"
+            >
+              {club.contactEmail}
+            </a>
+            <p className="mt-2 text-white/75">
+              Email us with your name and school email to get added to our
+              Teams.
+            </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="mx-auto max-w-6xl px-5 py-24 md:py-32">
-        <ScrollReveal>
-          <div className="grid gap-8 md:grid-cols-[.75fr_1.25fr]">
-            <div>
-              <p className="eyebrow text-slate">The 3D printing journey</p>
-              <h2 className="mt-5 max-w-[28ch] text-5xl text-ink sm:text-6xl">
-                From idea to finished object.
-              </h2>
-            </div>
+        {/* The toy. Small, off to one side — a thing you notice, not a hero. */}
+        <section
+          className="tile items-center justify-center !p-3"
+          style={{ "--tilt": "1.8deg" } as React.CSSProperties}
+        >
+          <LayerStage />
+        </section>
 
-            <div>
-              <ol className="border-t border-ink">
-                {process.map((step, index) => (
-                  <li
-                    key={step.label}
-                    className="group grid gap-3 border-b border-mist py-7 transition-colors duration-200 hover:bg-cloud/60 sm:grid-cols-[4rem_.55fr_1fr] sm:gap-6 sm:px-3 rounded-lg"
-                  >
-                    <span className="font-mono text-xs font-semibold text-slate transition-colors group-hover:text-navy">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <h3 className="text-2xl text-ink">{step.title}</h3>
-                    <p className="text-slate">{step.body}</p>
-                  </li>
-                ))}
-              </ol>
+        <section
+          className="tile tile--mandarin tile--w2 justify-between"
+          style={{ "--tilt": "-0.8deg" } as React.CSSProperties}
+        >
+          <h2 className="max-w-[12ch] text-3xl text-ink">Have a model ready?</h2>
+          <p className="mt-4 max-w-[40ch] text-ink/75">
+            Share your project details. We&rsquo;ll review the request and follow
+            up by email.
+          </p>
+          <Link href="/request" className="text-link mt-5 w-fit">
+            Request a print <span aria-hidden="true">→</span>
+          </Link>
+        </section>
 
-              <div className="mt-8">
-                <Button href="/guides" variant="secondary">
-                  Explore the learning path <span aria-hidden="true">→</span>
-                </Button>
-              </div>
-            </div>
-          </div>
+        <section
+          className="tile tile--w2 justify-between"
+          style={{ "--tilt": "0.9deg" } as React.CSSProperties}
+        >
+          <h2 className="text-3xl text-ink">Never done this before?</h2>
+          <ol className="mt-5 grid gap-3">
+            {guides.map((guide, index) => (
+              <li key={guide.title} className="flex items-baseline gap-3">
+                <span className="text-sm text-slate">{index + 1}</span>
+                <span className="font-display font-bold text-ink">
+                  {guide.title}
+                </span>
+                <span className="text-sm text-slate">{guide.level}</span>
+              </li>
+            ))}
+          </ol>
+          <Link href="/guides" className="text-link mt-5 w-fit">
+            Start here <span aria-hidden="true">→</span>
+          </Link>
+        </section>
+
+        {/* Real inventory, doing the work photography can't do yet */}
+        <ScrollReveal className="tile tile--w4" delay={1}>
+          <FilamentWall />
         </ScrollReveal>
-      </section>
-    </>
+      </div>
+    </div>
   );
 }
