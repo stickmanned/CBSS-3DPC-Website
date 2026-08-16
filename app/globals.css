@@ -34,6 +34,7 @@
   --color-navy: #213366; /* club identity, retained */
   --color-ink: #1b2233;
   --color-slate: #5c6274;
+  --color-night: #17171d; /* hero ground — saturated colour needs the dark */
 
   /* --- Accents · all real stocked filament ---------------------------- */
   --color-signal: #f5c21b; /* filament: Sunflower Yellow */
@@ -124,10 +125,22 @@ body {
   color: var(--color-ink);
 }
 
-/* Display type is loud in weight and character, not in size. The old scale
-   ran to 7.25rem, which is billboard territory and read as agency budget.
-   Bricolage carries the personality so the point size does not have to. */
-h1,
+/* Page titles are the serif. Fraunces with its WONK axis engaged bends
+   terminals and bowls off-axis, which is what reads as drawn-by-hand rather
+   than set-by-software — the single biggest contributor to the warmth of the
+   reference site. Titles only: section headings stay on the sans so the serif
+   keeps its weight as an event rather than becoming the page's default voice. */
+h1 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 400;
+  font-variation-settings: "WONK" 1, "SOFT" 6;
+  letter-spacing: -0.015em;
+  line-height: 1.04;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
 h2,
 h3 {
   font-family: var(--font-display);
@@ -1598,6 +1611,15 @@ button {
   padding-inline: 0;
 }
 
+/* A label stuck across a seam rather than sitting inside a box. Carries real
+   data — the print's material — not decoration invented for the effect. */
+.sticker--stuck {
+  position: absolute;
+  z-index: 4;
+  top: -0.85rem;
+  left: 1.25rem;
+}
+
 /* Span helpers — the grid is irregular on purpose. */
 .tile--w2 { grid-column: span 2; }
 .tile--w3 { grid-column: span 3; }
@@ -1645,6 +1667,101 @@ button {
   font-weight: 700;
   line-height: 1.3;
   color: var(--color-slate);
+}
+
+/* ---- DARK HERO ----------------------------------------------------------
+   Saturated colour needs a dark ground to read as loud rather than shouty —
+   that is why the reference site sits on near-black. Only the hero goes dark;
+   the rest of the site stays on paper so the request form, status pages and
+   admin keep one consistent light treatment.
+   ------------------------------------------------------------------------ */
+.hero-dark {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--color-night);
+  color: var(--color-snow);
+}
+
+/* ---- Animated rainbow text ---------------------------------------------
+   The gradient's last stop repeats its first, so sliding the 200%-wide
+   background by exactly one page-width loops with no visible seam.
+   Technique borrowed from hackclub.com; stop values are theirs.
+   ------------------------------------------------------------------------ */
+.rainbow-text {
+  background-image: repeating-linear-gradient(
+    105deg,
+    #ec3750 0%,
+    #ff8c37 16%,
+    #f1c40f 32%,
+    #33d6a6 48%,
+    #338eda 64%,
+    #a633d6 80%,
+    #ec3750 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow-slide 6s linear infinite;
+}
+
+@keyframes rainbow-slide {
+  from { background-position: 0% 0%; }
+  to { background-position: 200% 0%; }
+}
+
+/* Static rainbow rather than no rainbow: the colour is the point, the motion
+   is the flourish. Freezing it keeps the design intact for anyone who has
+   asked the OS to stop things moving. */
+@media (prefers-reduced-motion: reduce) {
+  .rainbow-text {
+    animation: none;
+    background-size: 100% 100%;
+  }
+}
+
+/* ---- Collage rails ------------------------------------------------------
+   Tilted photo columns framing the hero. The rail renders whatever exists in
+   `heroPhotos` and fills the remainder with filament-coloured blocks, so it
+   reads as designed at one photo and simply gets richer as more land. No
+   dashed "missing image" boxes — a visitor should never see scaffolding.
+   ------------------------------------------------------------------------ */
+.rail {
+  display: grid;
+  gap: 0.75rem;
+  align-content: center;
+}
+
+.rail__cell {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-card);
+  border: 2px solid rgb(255 255 255 / 0.16);
+  transform: rotate(var(--cell-tilt, 0deg));
+  transition: transform var(--dur-release) var(--ease-spring);
+}
+
+.rail__cell:hover {
+  transform: rotate(0deg) scale(1.03);
+}
+
+/* Rails are decoration, and decoration should not survive into a phone
+   viewport where it would eat the whole first screen. */
+@media (max-width: 60rem) {
+  .rail {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail__cell,
+  .rail__cell:hover {
+    transform: none;
+    transition: none;
+  }
 }
 
 /* Ft8 marquee. Two identical runs slide the width of one, so the loop is
@@ -1712,5 +1829,76 @@ button {
   .filament-chip:hover,
   .filament-chip:focus-visible {
     transform: none;
+  }
+}
+
+/* ---- Die-cut stickers ---------------------------------------------------
+   A real sticker is vinyl cut to the shape of the art, so there is no plate
+   behind it — no white circle, no rounded square. The white edge comes from a
+   stack of drop-shadows pushed in eight directions, which follow the PNG's own
+   alpha channel and therefore trace the actual silhouette: the boat's hull,
+   the printer's gantry, the spool's holes.
+
+   REQUIREMENT: the source PNGs must have transparent backgrounds. A PNG saved
+   with a light-grey product background renders as a grey square and no amount
+   of outline will fix it.
+
+   Placed in the hero's reserved gutters only — never over text, never over
+   another block.
+   ------------------------------------------------------------------------ */
+.decal {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  transform: rotate(var(--decal-tilt, 0deg));
+  transition: transform var(--dur-release) var(--ease-spring);
+}
+
+.decal__art {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Depth only. The artwork PNGs carry their own white vinyl border in the
+     pixels, so drawing a second one would give them a double edge. */
+  filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.45));
+}
+
+/* For art with no border of its own — the club logo. Eight directions at 2px
+   reads as a continuous outline; four leaves notches on diagonal edges, and
+   the alpha channel is what the shadows follow, so it traces the real mark. */
+.decal__art--outlined {
+  filter:
+    drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff)
+    drop-shadow(0 2px 0 #fff) drop-shadow(0 -2px 0 #fff)
+    drop-shadow(1.4px 1.4px 0 #fff) drop-shadow(-1.4px 1.4px 0 #fff)
+    drop-shadow(1.4px -1.4px 0 #fff) drop-shadow(-1.4px -1.4px 0 #fff)
+    drop-shadow(0 3px 3px rgb(0 0 0 / 0.45));
+}
+
+/* The pop. Hover on a pointer, :active covers tap on touch — the sticker
+   straightens, jumps and grows, then settles back on the spring. */
+.decal:hover,
+.decal:active {
+  transform: rotate(0deg) translateY(-6px) scale(1.16);
+}
+
+/* Stickers are the first thing to go when space is tight: below the rails'
+   breakpoint the hero is a single narrow column and there are no gutters
+   left for them to live in without landing on the words. */
+@media (max-width: 60rem) {
+  .decal {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .decal {
+    transition: none;
+  }
+
+  .decal:hover,
+  .decal:active {
+    transform: rotate(var(--decal-tilt, 0deg));
   }
 }

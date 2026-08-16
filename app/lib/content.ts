@@ -50,6 +50,31 @@ export const gallery: Work[] = [
   },
 ];
 
+/* ---- Hero collage rail ------------------------------------------
+   The photos that frame the homepage hero. Add a file to
+   public/img/hero/ and a line here — the rail sizes itself to
+   whatever exists, so it never looks broken while it fills up.
+
+   TARGET: 10-12 photos. Shoot list, roughly in order of value:
+     1. someone holding a finished print (have: wizard)
+     2. a printer mid-job, nozzle and part in frame
+     3. the drafting room during a meeting, wide
+     4. hands at a screen modelling in TinkerCAD or Fusion
+     5. a spool wall / the filament you actually stock
+     6. a failed print — spaghetti, warping, a collapsed support
+     7. a print still on the bed before removal
+     8. a group shot at a meeting
+   Landscape or square crop best. Phone photos are fine and read as
+   more honest than staged ones — do not shoot these "nicely". */
+export type HeroPhoto = { src: string; alt: string };
+
+export const heroPhotos: HeroPhoto[] = [
+  {
+    src: "/img/student-works/wizard.png",
+    alt: "A student holding a small black 3D printed wizard figure",
+  },
+];
+
 /* ---- Learning path --------------------------------------------- */
 export const guides = [
   {

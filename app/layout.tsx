@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Gabarito, Atkinson_Hyperlegible } from "next/font/google";
+import { Gabarito, Atkinson_Hyperlegible, Fraunces } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { club } from "./lib/content";
@@ -25,6 +25,17 @@ const gabarito = Gabarito({
   display: "swap",
 });
 
+/* Loaded for the hero A/B only. Fraunces carries a WONK axis that bends
+   terminals and bowls off-axis — the closest free face to the reference
+   site's custom serif, and the reason it reads handmade rather than
+   editorial. If the sans wins the comparison, delete this import. */
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  axes: ["WONK", "SOFT", "opsz"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
 const atkinson = Atkinson_Hyperlegible({
   subsets: ["latin"],
   weight: ["400", "700"],
@@ -45,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       data-scroll-behavior="smooth"
-      className={`${gabarito.variable} ${atkinson.variable} ${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${gabarito.variable} ${fraunces.variable} ${atkinson.variable} ${GeistSans.variable} ${GeistMono.variable}`}
     >
       <body className="min-h-screen flex flex-col">
         <a href="#main" className="skip-link">

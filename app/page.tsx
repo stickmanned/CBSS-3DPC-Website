@@ -2,8 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import Button from "./components/Button";
 import FilamentWall from "./components/FilamentWall";
+import HeroRail from "./components/HeroRail";
 import LayerStage from "./components/LayerStage";
 import ScrollReveal from "./components/ScrollReveal";
+import Sticker from "./components/Stickers";
 import { club, gallery, guides, meetingFacts } from "./lib/content";
 
 /* The homepage is a noticeboard, not a landing page. Blocks of different
@@ -14,33 +16,76 @@ export default function Home() {
   const feature = gallery[0];
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-10 md:py-14">
-      <div className="board">
-        {/* What is this */}
-        <section className="tile tile--flat tile--w4">
-          <p className="sticker sticker--mint w-fit">
-            {club.school} · {club.district}
-          </p>
-          <h1 className="mt-5 max-w-[16ch] text-[clamp(2.5rem,6vw,3.75rem)] text-ink">
-            Come make something{" "}
-            <span className="underline decoration-signal decoration-[0.16em] underline-offset-[0.1em]">
-              Tuesday
-            </span>
-            .
-          </h1>
-          <p className="mt-5 max-w-[46ch] text-lg leading-relaxed text-slate">
-            CBSS 3D printing club is a community where students design, model,
-            and 3D print cool stuff.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button href="/about#join">
-              Join the club <span aria-hidden="true">→</span>
-            </Button>
-            <Button href="/request" variant="secondary">
-              Request a print
-            </Button>
+    <>
+      {/* Dark hero, collage-railed, centred — the one section that borrows the
+          reference site's shape. Everything below it stays on paper. */}
+      <section className="hero-dark">
+        <div className="mx-auto grid max-w-[90rem] items-center gap-8 px-5 py-14 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,14rem)] lg:py-20">
+          <HeroRail side="left" />
+
+          {/* The centre column reserves a gutter on each side at xl and the
+              stickers live inside it. Positioning them by eye against the text
+              looked fine at one window width and collided at others; giving
+              them their own reserved space makes it impossible. */}
+          <div className="relative px-0 text-center xl:px-36">
+            <Sticker
+              kind="logo"
+              tilt="-8deg"
+              size={88}
+              className="left-0 top-2 hidden xl:grid"
+            />
+            <Sticker
+              kind="benchy"
+              tilt="7deg"
+              size={80}
+              className="right-0 top-0 hidden xl:grid"
+            />
+            <Sticker
+              kind="spool"
+              tilt="-5deg"
+              size={76}
+              className="bottom-2 left-2 hidden xl:grid"
+            />
+            {/* Larger than the others on purpose: the printer artwork is dark
+                grey on a dark hero and the most detailed of the four, so at the
+                same size as the boat it read as a smudge. */}
+            <Sticker
+              kind="printer"
+              tilt="9deg"
+              size={112}
+              className="-bottom-2 right-0 hidden xl:grid"
+            />
+            {/* No fifth sticker in the centre — a bottom-centre placement lands
+                straight on the CTA buttons. `layers` stays exported for use in
+                a section that has room for it. */}
+
+            <p className="sticker sticker--mint mx-auto w-fit">
+              {club.school} · {club.district}
+            </p>
+            <h1 className="mx-auto mt-6 max-w-[15ch] text-[clamp(2.75rem,6.5vw,4.75rem)]">
+              Come make something{" "}
+              <span className="rainbow-text">Tuesday</span>.
+            </h1>
+            <p className="mx-auto mt-6 max-w-[46ch] text-lg leading-relaxed text-white/70">
+              CBSS 3D printing club is a community where students design, model,
+              and 3D print cool stuff.
+            </p>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <Button href="/about#join">
+                Join the club <span aria-hidden="true">→</span>
+              </Button>
+              <Button href="/request" variant="light">
+                Request a print
+              </Button>
+            </div>
           </div>
-        </section>
+
+          <HeroRail side="right" />
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-6xl px-5 py-10 md:py-14">
+        <div className="board">
 
         {/* What people make — the largest block on the page, uncropped */}
         {feature && (
@@ -56,12 +101,15 @@ export default function Home() {
                   priority
                 />
               </div>
-              <figcaption className="border-t-2 border-ink p-5">
+              <figcaption className="relative border-t-2 border-ink p-5">
+                <span className="sticker sticker--mandarin sticker--stuck">
+                  {feature.material}
+                </span>
                 <p className="font-display text-2xl font-bold text-ink">
                   {feature.title}
                 </p>
                 <p className="mt-1 text-sm text-slate">
-                  Printed by {feature.printedBy} · {feature.material}
+                  Printed by {feature.printedBy}
                 </p>
                 <p className="mt-3 text-slate">{feature.blurb}</p>
                 <Link href="/gallery" className="text-link mt-4 w-fit">
@@ -158,11 +206,12 @@ export default function Home() {
           </Link>
         </section>
 
-        {/* Real inventory, doing the work photography can't do yet */}
-        <ScrollReveal className="tile tile--w4" delay={1}>
-          <FilamentWall />
-        </ScrollReveal>
+          {/* Real inventory, doing the work photography can't do yet */}
+          <ScrollReveal className="tile tile--w4" delay={1}>
+            <FilamentWall />
+          </ScrollReveal>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
