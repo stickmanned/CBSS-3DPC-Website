@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { FilamentColor } from "../../lib/filament-colors";
 import type { BoundingBoxMm, ModelPart, PreviewMetadata } from "./types";
 
@@ -8,11 +8,6 @@ type PreviewState = "parsing" | "ready" | "fallback" | "error";
 
 /* The colour a model renders in before any filament is chosen. */
 const UNPAINTED = 0x213366;
-
-/* Past this many parts the assignment panel stops being a control and starts
-   being a wall of rows. Bigger models still get painted — round-robin through
-   the chosen colours — they just do not get per-part pickers. */
-const MAX_ASSIGNABLE_PARTS = 12;
 
 /* A gradient filament has no single renderable colour, so the preview uses its
    first stop. The panel still names it, so nobody thinks the spool is solid. */
@@ -40,10 +35,11 @@ export default function ModelPreview({
   /** A repainted thumbnail, so the club sees the model as it was arranged. */
   onRepaint?: (thumbnail: string | null) => void;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const rotateRef = useRef<(degrees: number) => void>(() => undefined);
   const resetRef = useRef<() => void>(() => undefined);
-  const paintRef = useRef<((assignment: Record<string, number>) => void) | null>(null);
+  const paintRef = useRef<((assignment: Record<string, number>, activeId: string | null) => void) | null>(null);
   const colorsRef = useRef(colors);
   const repaintRef = useRef(onRepaint);
   const [state, setState] = useState<PreviewState>("parsing");
@@ -51,6 +47,40 @@ export default function ModelPreview({
   const [angle, setAngle] = useState(0);
   const [parts, setParts] = useState<ModelPart[]>([]);
   const [assignment, setAssignment] = useState<Record<string, number>>({});
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const partsRef = useRef(parts);
+  const selectedPartIdRef = useRef(selectedPartId);
+  const onPartClickRef = useRef<(partId: string) => void>(() => undefined);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement && !isFullscreen) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {
+          setIsFullscreen(true);
+        });
+      } else {
+        setIsFullscreen(true);
+      }
+    } else {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {
+          setIsFullscreen(false);
+        });
+      } else {
+        setIsFullscreen(false);
+      }
+    }
+  }, [isFullscreen]);
 
   /* Read through refs inside the build effect so choosing a colour repaints
      the existing scene instead of tearing down WebGL and re-parsing the file.
@@ -59,7 +89,39 @@ export default function ModelPreview({
   useEffect(() => {
     colorsRef.current = colors;
     repaintRef.current = onRepaint;
+    partsRef.current = parts;
+    selectedPartIdRef.current = selectedPartId;
   });
+
+  const handlePartClick = useCallback((partId: string) => {
+    setSelectedPartId(partId);
+
+    const chosen = colorsRef.current;
+    if (chosen.length > 0) {
+      setAssignment((current) => {
+        const partIndex = partsRef.current.findIndex((p) => p.id === partId);
+        const curIdx =
+          (current[partId] ?? (partIndex >= 0 ? partIndex % chosen.length : 0)) %
+          chosen.length;
+        const nextIdx = chosen.length > 1 ? (curIdx + 1) % chosen.length : curIdx;
+        return { ...current, [partId]: nextIdx };
+      });
+    }
+
+    // Scroll the matching part into view in the list and focus its button
+    const rowEl = document.getElementById(`part-row-${partId}`);
+    if (rowEl) {
+      rowEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const currentSwatch =
+        rowEl.querySelector<HTMLButtonElement>("button.is-current") ||
+        rowEl.querySelector<HTMLButtonElement>("button");
+      currentSwatch?.focus({ preventScroll: true });
+    }
+  }, []);
+
+  useEffect(() => {
+    onPartClickRef.current = handlePartClick;
+  }, [handlePartClick]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -74,6 +136,7 @@ export default function ModelPreview({
     setAngle(0);
     setParts([]);
     setAssignment({});
+    setSelectedPartId(null);
     paintRef.current = null;
     previewHost.replaceChildren();
 
@@ -150,16 +213,23 @@ export default function ModelPreview({
         });
       });
 
-      const paint = (current: Record<string, number>) => {
+      const paint = (current: Record<string, number>, activeId: string | null) => {
         const chosen = colorsRef.current;
         paintable.forEach((part, index) => {
           const target = chosen.length
             ? chosen[(current[part.id] ?? index % chosen.length) % chosen.length]
             : null;
           part.material.color.setHex(target ? renderColorOf(target) : UNPAINTED);
+          if (part.id === activeId) {
+            part.material.emissive.setHex(0x28384d);
+            part.material.emissiveIntensity = 0.5;
+          } else {
+            part.material.emissive.setHex(0x000000);
+            part.material.emissiveIntensity = 0;
+          }
         });
       };
-      paint({});
+      paint({}, null);
       setParts(paintable.map(({ id, name }) => ({ id, name })));
 
       try {
@@ -177,15 +247,30 @@ export default function ModelPreview({
         modelRoot.add(object);
         scene.add(modelRoot);
 
+        const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+        const radius = Math.max(1, sphere.radius);
+
         const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 100000);
-        const largestDimension = Math.max(size.x, size.y, size.z);
-        const distance = Math.max(
-          largestDimension * 1.8,
-          largestDimension / (2 * Math.tan((camera.fov * Math.PI) / 360)) * 1.35,
+        const initialWidth = Math.max(1, previewHost.clientWidth);
+        const initialHeight = Math.max(1, previewHost.clientHeight);
+        const initialAspect = initialWidth / initialHeight;
+        camera.aspect = initialAspect;
+
+        const fovYRad = (camera.fov * Math.PI) / 180;
+        const fovXRad = 2 * Math.atan(Math.tan(fovYRad / 2) * initialAspect);
+        const minFovRad = Math.min(fovYRad, fovXRad);
+        const fitDistance = (radius / Math.sin(minFovRad / 2)) * 1.12;
+
+        const elev = (28 * Math.PI) / 180;
+        const azim = (45 * Math.PI) / 180;
+        camera.position.set(
+          fitDistance * Math.cos(elev) * Math.sin(azim),
+          fitDistance * Math.sin(elev),
+          fitDistance * Math.cos(elev) * Math.cos(azim),
         );
-        camera.position.set(distance * 0.72, distance * 0.52, distance);
-        camera.near = Math.max(0.01, distance / 1000);
-        camera.far = distance * 20;
+        camera.near = Math.max(0.01, fitDistance / 500);
+        camera.far = fitDistance * 50;
+        camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
 
         scene.add(new THREE.HemisphereLight(0xffffff, 0x213366, 2.2));
@@ -203,25 +288,31 @@ export default function ModelPreview({
         });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.domElement.className = "block h-full w-full";
+        renderer.domElement.className = "block h-full w-full cursor-grab";
         renderer.domElement.setAttribute("aria-hidden", "true");
         previewHost.replaceChildren(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
-        controls.enablePan = false;
-        controls.autoRotateSpeed = 1.4;
+        controls.enablePan = true;
+        controls.screenSpacePanning = true;
+        controls.autoRotate = false;
+        controls.minDistance = radius * 0.2;
+        controls.maxDistance = fitDistance * 6;
+        controls.maxPolarAngle = Math.PI - 0.05;
+        controls.mouseButtons = {
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.PAN,
+          RIGHT: THREE.MOUSE.PAN,
+        };
+        controls.touches = {
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN,
+        };
         controls.target.set(0, 0, 0);
         controls.update();
         controls.saveState();
-
-        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-        const updateMotion = () => {
-          controls.autoRotate = !reducedMotion.matches;
-        };
-        updateMotion();
-        reducedMotion.addEventListener("change", updateMotion);
 
         const resize = () => {
           const width = Math.max(1, previewHost.clientWidth);
@@ -243,8 +334,66 @@ export default function ModelPreview({
         };
         render();
 
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function getIntersectedPartId(event: PointerEvent): string | null {
+          const rect = renderer.domElement.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) return null;
+          mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+          mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+          const intersects = raycaster.intersectObjects(modelRoot.children, true);
+          const hit = intersects.find((i) => i.object instanceof THREE.Mesh);
+          if (!hit || !(hit.object instanceof THREE.Mesh)) return null;
+
+          const mesh = hit.object;
+          let slotIndex = 0;
+          if (Array.isArray(mesh.material)) {
+            slotIndex = hit.face?.materialIndex ?? 0;
+          }
+          return `${mesh.uuid}:${slotIndex}`;
+        }
+
+        let pointerDownX = 0;
+        let pointerDownY = 0;
+        let pointerDownTime = 0;
+
+        const onPointerDown = (e: PointerEvent) => {
+          pointerDownX = e.clientX;
+          pointerDownY = e.clientY;
+          pointerDownTime = Date.now();
+        };
+
+        const onPointerMove = (e: PointerEvent) => {
+          if (e.buttons > 0) return;
+          const partId = getIntersectedPartId(e);
+          renderer.domElement.style.cursor = partId ? "pointer" : "grab";
+        };
+
+        const onPointerUp = (e: PointerEvent) => {
+          const dx = Math.abs(e.clientX - pointerDownX);
+          const dy = Math.abs(e.clientY - pointerDownY);
+          const dt = Date.now() - pointerDownTime;
+          if (dx <= 4 && dy <= 4 && dt < 600) {
+            const partId = getIntersectedPartId(e);
+            if (partId) {
+              onPartClickRef.current(partId);
+            }
+          }
+        };
+
+        renderer.domElement.addEventListener("pointerdown", onPointerDown);
+        renderer.domElement.addEventListener("pointermove", onPointerMove);
+        renderer.domElement.addEventListener("pointerup", onPointerUp);
+
         rotateRef.current = (degrees) => {
-          modelRoot.rotation.y += (degrees * Math.PI) / 180;
+          const angleRad = (degrees * Math.PI) / 180;
+          const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+          offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angleRad);
+          camera.position.addVectors(controls.target, offset);
+          camera.lookAt(controls.target);
+          controls.update();
           setAngle((current) => {
             const next = Math.round(current + degrees);
             return ((next % 360) + 360) % 360;
@@ -252,8 +401,10 @@ export default function ModelPreview({
           renderer.render(scene, camera);
         };
         resetRef.current = () => {
-          modelRoot.rotation.set(0, 0, 0);
-          controls.reset();
+          controls.target.set(0, 0, 0);
+          camera.position.set(0, radius * 0.15, fitDistance * 0.95);
+          camera.lookAt(0, 0, 0);
+          controls.update();
           setAngle(0);
           renderer.render(scene, camera);
         };
@@ -271,8 +422,8 @@ export default function ModelPreview({
         /* Repainting re-renders and re-captures rather than rebuilding: the
            thumbnail the club receives is the model in the colours the
            requester actually arranged. */
-        paintRef.current = (current) => {
-          paint(current);
+        paintRef.current = (current, activeId) => {
+          paint(current, activeId);
           renderer.render(scene, camera);
           repaintRef.current?.(captureThumbnail());
         };
@@ -283,9 +434,11 @@ export default function ModelPreview({
 
         cleanupPreview = () => {
           paintRef.current = null;
+          renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+          renderer.domElement.removeEventListener("pointermove", onPointerMove);
+          renderer.domElement.removeEventListener("pointerup", onPointerUp);
           window.cancelAnimationFrame(frame);
           resizeObserver.disconnect();
-          reducedMotion.removeEventListener("change", updateMotion);
           controls.dispose();
           object.traverse((child) => {
             if (!(child instanceof THREE.Mesh)) return;
@@ -325,8 +478,8 @@ export default function ModelPreview({
   /* Colour choices and part assignments both land here. The scene is already
      built, so this only pushes colours onto existing materials. */
   useEffect(() => {
-    paintRef.current?.(assignment);
-  }, [assignment, colors, parts]);
+    paintRef.current?.(assignment, selectedPartId);
+  }, [assignment, colors, parts, selectedPartId]);
 
   function assignPart(partId: string, colorIndex: number) {
     setAssignment((current) => ({ ...current, [partId]: colorIndex }));
@@ -365,15 +518,70 @@ export default function ModelPreview({
 
   return (
     <div
-      className="overflow-hidden rounded-[var(--radius-card)] border border-mist bg-cloud"
+      ref={containerRef}
+      className={`transition-all ${
+        isFullscreen
+          ? "fixed inset-0 z-50 flex flex-col overflow-y-auto bg-cloud p-4 sm:p-6"
+          : "overflow-hidden rounded-[var(--radius-card)] border border-mist bg-cloud"
+      }`}
       role="group"
       aria-label={`Model preview for ${file.name}`}
       aria-describedby="model-preview-instructions model-preview-angle"
       tabIndex={state === "ready" ? 0 : -1}
       onKeyDown={handleKeyDown}
     >
-      <div className="relative h-64 w-full sm:h-80">
+      <div className={`relative w-full transition-all ${isFullscreen ? "min-h-[55vh] flex-1" : "h-64 sm:h-80"}`}>
         <div ref={hostRef} className="absolute inset-0" />
+
+        {/* Fullscreen button on top left corner */}
+        {state === "ready" && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="absolute left-3 top-3 z-20 grid size-10 place-items-center rounded-[var(--radius-chip)] border-2 border-ink/20 bg-white/90 text-ink shadow-sm backdrop-blur transition-all hover:border-ink hover:bg-white hover:scale-105 active:scale-95"
+            aria-label={isFullscreen ? "Exit fullscreen preview" : "Enter fullscreen preview"}
+            title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen preview"}
+          >
+            {isFullscreen ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+                <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+                <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+                <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 3h6v6" />
+                <path d="M9 21H3v-6" />
+                <path d="M21 3l-7 7" />
+                <path d="M3 21l7-7" />
+              </svg>
+            )}
+          </button>
+        )}
+
         {state === "parsing" && (
           <span
             className="absolute inset-0 grid place-items-center text-sm font-semibold text-navy"
@@ -407,29 +615,48 @@ export default function ModelPreview({
                 ? " — this model is one part, so it prints in a single colour."
                 : "."}
             </p>
-          ) : parts.length > MAX_ASSIGNABLE_PARTS ? (
-            <p className="text-sm text-slate">
-              This model has {parts.length} parts — too many to assign one by
-              one, so the preview cycles through your {colors.length} colours in
-              order. Tell the club in the notes if specific parts need specific
-              colours.
-            </p>
           ) : (
             <>
-              <p className="font-display text-sm font-bold text-ink">
-                Which colour goes where
-              </p>
-              <ul className="mt-3 grid gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-display text-sm font-bold text-ink">
+                    Which colour goes where
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate">
+                    Click any part in the 3D model to cycle its colour and highlight it below.
+                  </p>
+                </div>
+                {parts.length > 1 && (
+                  <span className="shrink-0 rounded-[var(--radius-chip)] border border-ink/10 bg-white px-2 py-0.5 text-xs font-semibold text-slate">
+                    {parts.length} parts
+                  </span>
+                )}
+              </div>
+              <ul className="mt-3 grid max-h-80 gap-2 overflow-y-auto pr-1">
                 {parts.map((part, index) => {
                   const current = (assignment[part.id] ?? index % colors.length) % colors.length;
+                  const isSelected = selectedPartId === part.id;
                   return (
                     <li
+                      id={`part-row-${part.id}`}
                       key={part.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border-2 border-ink/10 bg-white px-3 py-2"
+                      onClick={() => setSelectedPartId(part.id)}
+                      className={`flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border-2 px-3 py-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-ink bg-signal/20 ring-2 ring-signal"
+                          : "border-ink/10 bg-white hover:border-ink/30"
+                      }`}
                     >
-                      <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                        {part.name}
-                      </span>
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <span className="min-w-0 truncate text-sm font-semibold text-ink">
+                          {part.name}
+                        </span>
+                        {isSelected && (
+                          <span className="shrink-0 rounded-[var(--radius-chip)] bg-ink px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                            Selected
+                          </span>
+                        )}
+                      </div>
                       <div
                         role="radiogroup"
                         aria-label={`Colour for ${part.name}`}
@@ -445,7 +672,11 @@ export default function ModelPreview({
                               role="radio"
                               aria-checked={checked}
                               tabIndex={checked ? 0 : -1}
-                              onClick={() => assignPart(part.id, colorIndex)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPartId(part.id);
+                                assignPart(part.id, colorIndex);
+                              }}
                               className={`part-swatch${checked ? " is-current" : ""}`}
                               style={{ background: color.swatch ?? color.hex }}
                             >

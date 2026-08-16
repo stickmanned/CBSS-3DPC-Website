@@ -2,6 +2,14 @@ import path from "node:path";
 import { z } from "zod";
 
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Ceiling for rendering a stored model in the admin browser. Lower than the
+ * upload limit on purpose: preview bytes travel through the app rather than
+ * straight from R2, and a mesh this large is slow to parse in a tab. Past it the
+ * admin page offers the download instead.
+ */
+export const PREVIEW_MAX_BYTES = 32 * 1024 * 1024;
 export const MIN_FORM_FILL_MS = 1_500;
 export const MAX_FORM_AGE_MS = 2 * 60 * 60 * 1_000;
 

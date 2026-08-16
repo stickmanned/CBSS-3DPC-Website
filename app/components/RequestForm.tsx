@@ -71,7 +71,7 @@ function normalizeActionErrors(errors?: Record<string, string | string[]>) {
           ? "modelSource"
           : field === "cf-turnstile-response" || field === "turnstileToken"
             ? "turnstile"
-          : field;
+            : field;
     normalized[key] = Array.isArray(messages) ? messages : [messages];
   });
   return normalized;
@@ -197,8 +197,7 @@ export default function RequestForm() {
     if (unavailable.length > 0) {
       const names = unavailable.map((color) => color.name).join(", ");
       setMaterialSwitchMessage(
-        `${names} ${unavailable.length === 1 ? "is" : "are"} not available in ${nextMaterial.toUpperCase()}. Remove ${
-          unavailable.length === 1 ? "it" : "them"
+        `${names} ${unavailable.length === 1 ? "is" : "are"} not available in ${nextMaterial.toUpperCase()}. Remove ${unavailable.length === 1 ? "it" : "them"
         } before switching material.`,
       );
       return;
@@ -391,7 +390,7 @@ export default function RequestForm() {
     >
       <div className="border-b border-mist pb-6">
         <h2 className="max-w-[18ch] text-3xl text-ink sm:text-4xl">
-          Give the club enough detail to assess the print.
+          Custom 3D printing at your fingertips.
         </h2>
         <p className="mt-4 max-w-[64ch] text-sm leading-relaxed text-slate">
           Required fields are marked. The club confirms feasibility and next steps after reviewing the model; this form does not promise a completion date.

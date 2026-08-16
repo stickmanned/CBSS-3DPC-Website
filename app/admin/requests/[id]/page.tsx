@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import AdminEventLog from "@/app/components/admin/AdminEventLog";
 import AdminHeader from "@/app/components/admin/AdminHeader";
+import AdminModelViewer from "@/app/components/admin/AdminModelViewer";
+import { PREVIEW_MAX_BYTES } from "@/app/lib/storage/upload-policy";
 import DetailMetadataForm from "@/app/components/admin/DetailMetadataForm";
 import TransitionComposer, {
   type EmailPreview,
@@ -119,6 +121,13 @@ export default async function AdminRequestDetailPage({
   if (!result.detail) notFound();
   const { request, file, assigneeName, assigneeLogin } = result.detail;
   const colorBySlug = new Map(FILAMENT_COLORS.map((color) => [color.slug, color]));
+  // The requester's filaments, in rank order, for the 3D preview to paint with.
+  const orderedColors = request.colors.flatMap((slug) => {
+    const color = colorBySlug.get(slug);
+    return color
+      ? [{ slug: color.slug, name: color.name, hex: color.hex, swatch: color.swatch }]
+      : [];
+  });
   const choices = transitionChoices(request, file);
 
   return (
@@ -223,23 +232,54 @@ export default async function AdminRequestDetailPage({
 
           <aside className="space-y-6">
             <section className="overflow-hidden rounded-[20px] border border-mist bg-white">
-              <div className="grid aspect-[4/3] place-items-center bg-cloud p-5">
-                {file?.thumbnailDataUri ? (
+              {file && !file.purgedAt ? (
+                <AdminModelViewer
+                  src={`/api/admin/files/${file.id}/model`}
+                  fileName={file.originalName}
+                  fileKind={file.fileKind}
+                  byteSize={file.verifiedByteSize}
+                  previewMaxBytes={PREVIEW_MAX_BYTES}
+                  colors={orderedColors}
+                />
+              ) : (
+                <div className="grid aspect-[4/3] place-items-center bg-cloud p-5">
+                  {file?.thumbnailDataUri ? (
+                    // A purged file has no bytes left to render, but the
+                    // requester's thumbnail survives as a record of what it was.
+                    <Image
+                      src={file.thumbnailDataUri}
+                      alt={`Requester's thumbnail for ${request.ref}`}
+                      width={720}
+                      height={540}
+                      unoptimized
+                      className="max-h-full w-auto object-contain"
+                    />
+                  ) : (
+                    <div className="text-center text-slate">
+                      <span className="font-mono text-4xl" aria-hidden="true">◇</span>
+                      <p className="mt-3 text-sm">No model file on this request</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* The requester's own capture. It is re-taken whenever they repaint,
+                  so it is the only record of a per-part arrangement — that mapping
+                  is not submitted with the request. */}
+              {file && !file.purgedAt && file.thumbnailDataUri && (
+                <figure className="border-t border-mist p-5">
+                  <figcaption className="text-xs text-slate">
+                    As the requester arranged it
+                  </figcaption>
                   <Image
                     src={file.thumbnailDataUri}
-                    alt={`Local model preview for ${request.ref}`}
+                    alt={`Requester's arrangement for ${request.ref}`}
                     width={720}
                     height={540}
                     unoptimized
-                    className="max-h-full w-auto object-contain"
+                    className="mt-2 w-full rounded-[var(--radius-card)] border border-mist"
                   />
-                ) : (
-                  <div className="text-center text-slate">
-                    <span className="font-mono text-4xl" aria-hidden="true">◇</span>
-                    <p className="mt-3 text-sm">No model thumbnail available</p>
-                  </div>
-                )}
-              </div>
+                </figure>
+              )}
               <div className="p-5">
                 <h2 className="text-xl text-ink">Private model file</h2>
                 {file ? (
@@ -252,13 +292,19 @@ export default async function AdminRequestDetailPage({
                         The retained file was purged {formatAdminDate(file.purgedAt)}.
                       </p>
                     ) : (
-                      <Link
-                        href={`/api/admin/files/${file.id}`}
-                        prefetch={false}
-                        className="btn btn--dark mt-5 w-full"
-                      >
-                        Download verified file
-                      </Link>
+                      <>
+                        <Link
+                          href={`/api/admin/files/${file.id}`}
+                          prefetch={false}
+                          className="btn btn--dark mt-5 w-full whitespace-nowrap"
+                        >
+                          Download for slicing
+                        </Link>
+                        <p className="mt-3 text-xs text-slate">
+                          Downloads straight from storage through a signed link that expires
+                          shortly after it is issued.
+                        </p>
+                      </>
                     )}
                   </>
                 ) : (
