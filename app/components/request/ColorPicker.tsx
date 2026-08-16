@@ -2,14 +2,22 @@
 
 import { useMemo, useState } from "react";
 import {
-  COLOR_FAMILIES,
   FILAMENT_COLORS,
-  type ColorFamily,
   type FilamentColor,
   type FilamentMaterial,
 } from "../../lib/filament-colors";
+import Spool from "../Spool";
+import SwatchGrid from "../SwatchGrid";
 import { moveItem } from "./request-form-utils";
 import type { MaterialSlug } from "./types";
+
+/* Choosing print colours is the one step where seeing the colour matters, and
+   the old version of this control was the one place you could not: thirteen
+   collapsed families of name-and-dot rows, three to a line, roughly two
+   thousand pixels tall when opened.
+
+   It is now the same grid the homepage uses, with the same spool showing what
+   you picked — up to four, in the order they are printed. */
 
 const MATERIAL_LABELS: Record<MaterialSlug, FilamentMaterial> = {
   pla: "PLA",
@@ -23,105 +31,15 @@ export function getFilamentColor(slug: string) {
   return COLORS_BY_SLUG.get(slug);
 }
 
-export function colorsUnavailableForMaterial(slugs: readonly string[], material: MaterialSlug) {
+export function colorsUnavailableForMaterial(
+  slugs: readonly string[],
+  material: MaterialSlug
+) {
   const materialLabel = MATERIAL_LABELS[material];
   return slugs
     .map((slug) => COLORS_BY_SLUG.get(slug))
     .filter((color): color is FilamentColor => Boolean(color))
     .filter((color) => !color.materials.includes(materialLabel));
-}
-
-function Swatch({ color }: { color: FilamentColor }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="size-8 shrink-0 rounded-full border border-ink/25 shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.45)]"
-      style={{ background: color.swatch ?? color.hex }}
-    />
-  );
-}
-
-function FamilySection({
-  family,
-  colors,
-  open,
-  onToggle,
-  selected,
-  atLimit,
-  disabled,
-  onToggleColor,
-}: {
-  family: ColorFamily;
-  colors: readonly FilamentColor[];
-  open: boolean;
-  onToggle: (open: boolean) => void;
-  selected: readonly string[];
-  atLimit: boolean;
-  disabled: boolean;
-  onToggleColor: (color: FilamentColor) => void;
-}) {
-  if (colors.length === 0) return null;
-
-  return (
-    <details
-      open={open}
-      onToggle={(event) => onToggle(event.currentTarget.open)}
-      className="group/family border-b border-mist last:border-b-0"
-    >
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-lg px-2 py-3 font-display font-bold text-ink hover:bg-cloud [&::-webkit-details-marker]:hidden">
-        <span>{family.label}</span>
-        <span className="flex items-center gap-3">
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-slate">
-            {colors.length}
-          </span>
-          <span aria-hidden="true" className="text-navy transition-transform group-open/family:rotate-180">
-            ↓
-          </span>
-        </span>
-      </summary>
-
-      <ul className="grid gap-2 pb-4 pt-1 sm:grid-cols-2 lg:grid-cols-3">
-        {colors.map((color) => {
-          const isSelected = selected.includes(color.slug);
-          const blocked = disabled || (atLimit && !isSelected);
-
-          return (
-            <li key={color.slug}>
-              <button
-                type="button"
-                aria-pressed={isSelected}
-                aria-disabled={blocked}
-                aria-describedby={atLimit && !isSelected ? "color-limit-message" : undefined}
-                onClick={() => onToggleColor(color)}
-                className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                  isSelected
-                    ? "border-navy bg-cloud shadow-[inset_0_0_0_1px_var(--color-navy)]"
-                    : "border-mist bg-white hover:border-navy/45 hover:bg-cloud/50"
-                } ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
-              >
-                <Swatch color={color} />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-display text-sm font-bold leading-snug text-ink">
-                    {color.name}
-                  </span>
-                  {(color.finish || color.specialty) && (
-                    <span className="mt-0.5 block truncate text-xs text-slate">
-                      {color.finish || "Specialty finish"}
-                    </span>
-                  )}
-                </span>
-                {isSelected && (
-                  <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-navy text-xs text-white">
-                    ✓
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </details>
-  );
 }
 
 export default function ColorPicker({
@@ -138,7 +56,6 @@ export default function ColorPicker({
   error?: string;
 }) {
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState(() => new Set<string>(["neutrals"]));
   const [announcement, setAnnouncement] = useState("");
   const materialLabel = MATERIAL_LABELS[material];
   const atLimit = selected.length >= 4;
@@ -152,40 +69,44 @@ export default function ColorPicker({
     return FILAMENT_COLORS.filter(
       (color) =>
         color.materials.includes(materialLabel) &&
-        (!query || color.name.toLocaleLowerCase().includes(query)),
+        (!query || color.name.toLocaleLowerCase().includes(query))
     );
   }, [materialLabel, search]);
 
-  const grouped = useMemo(
-    () =>
-      COLOR_FAMILIES.map((family) => ({
-        family,
-        colors: available.filter((color) => color.family === family.slug),
-      })),
-    [available],
-  );
+  /* The spool shows the first colour, because that is the one the print
+     starts in. The rest are listed beneath it in order. */
+  const previewFill = selectedColors[0]
+    ? selectedColors[0].swatch ?? selectedColors[0].hex
+    : "var(--color-cloud)";
 
   function toggleColor(color: FilamentColor) {
     if (disabled) return;
-    const selectedIndex = selected.indexOf(color.slug);
-    if (selectedIndex >= 0) {
+    const index = selected.indexOf(color.slug);
+    if (index >= 0) {
       onChange(selected.filter((slug) => slug !== color.slug));
-      setAnnouncement(`${color.name} removed. ${selected.length - 1} of 4 selected.`);
+      setAnnouncement(
+        `${color.name} removed. ${selected.length - 1} of 4 selected.`
+      );
       return;
     }
     if (atLimit) {
-      setAnnouncement("Four colors are already selected. Remove one before choosing another.");
+      setAnnouncement(
+        "Four colors are already selected. Remove one before choosing another."
+      );
       return;
     }
     onChange([...selected, color.slug]);
-    setAnnouncement(`${color.name} added in position ${selected.length + 1}. ${selected.length + 1} of 4 selected.`);
+    setAnnouncement(
+      `${color.name} added in position ${selected.length + 1}. ${
+        selected.length + 1
+      } of 4 selected.`
+    );
   }
 
   function reorder(index: number, direction: -1 | 1) {
     const color = selectedColors[index];
     if (!color) return;
-    const next = moveItem(selected, index, index + direction);
-    onChange(next);
+    onChange(moveItem(selected, index, index + direction));
     setAnnouncement(`${color.name} moved to position ${index + direction + 1}.`);
   }
 
@@ -193,39 +114,116 @@ export default function ColorPicker({
     <fieldset
       id="color-picker"
       aria-invalid={Boolean(error)}
-      aria-describedby={["color-picker-help", error ? "colors-error" : ""].filter(Boolean).join(" ")}
+      aria-describedby={["color-picker-help", error ? "colors-error" : ""]
+        .filter(Boolean)
+        .join(" ")}
     >
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <legend className="font-display text-lg font-bold text-ink">Colors</legend>
+          <legend className="font-display text-lg font-bold text-ink">
+            Colors
+          </legend>
           <p id="color-picker-help" className="mt-1 max-w-[64ch] text-sm text-slate">
-            Optional. Pick up to four in print order. Multicolor and gradient filament uses one slot. Leave this empty for the club’s choice.
+            Optional. Pick up to four in print order. Multicolor and gradient
+            filament uses one slot. Leave this empty for the club&rsquo;s choice.
           </p>
         </div>
-        <p className="rounded-full bg-ink px-4 py-2 font-mono text-xs font-semibold uppercase tracking-[0.06em] text-white">
+        <p className="rounded-[var(--radius-chip)] border-2 border-ink bg-signal px-3 py-1.5 font-display text-sm font-bold text-ink">
           {selected.length} of 4 selected
         </p>
       </div>
 
-      {selectedColors.length > 0 ? (
-        <ol className="mt-5 grid gap-2" aria-label="Selected colors in print order">
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] lg:gap-7">
+        <div>
+          <Spool fill={previewFill} className="lg:mx-0" />
+
+          {selectedColors.length === 0 && (
+            <p className="mt-4 text-sm text-slate">
+              No colors selected — the club will choose an available color.
+            </p>
+          )}
+
+          {atLimit && (
+            <p
+              id="color-limit-message"
+              className="mt-3 text-sm font-semibold text-ink"
+              role="status"
+            >
+              Four-color limit reached. Remove one before choosing another.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="color-search"
+            className="mb-2 block font-display text-[15px] font-bold text-ink"
+          >
+            Search {materialLabel} colors by name
+          </label>
+          <input
+            id="color-search"
+            type="search"
+            value={search}
+            disabled={disabled}
+            onChange={(event) => setSearch(event.currentTarget.value)}
+            className="field border-navy/30"
+            placeholder="Try navy, copper, or rainbow"
+            autoComplete="off"
+          />
+
+          <div className="mt-4">
+            <SwatchGrid
+              label={`${materialLabel} colours`}
+              colors={available}
+              selectedSlugs={selected}
+              multiple
+              disabled={disabled}
+              badge={(color) => {
+                const index = selected.indexOf(color.slug);
+                return index === -1 ? null : index + 1;
+              }}
+              onSelect={toggleColor}
+              emptyMessage={`No ${materialLabel} colors match “${search}”. Try another name.`}
+              className="max-h-[20rem]"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Print order runs left to right across the full width rather than
+          stacked beside the spool: three 44px controls and a colour name do
+          not fit in a 14rem column without wrapping onto a second line. */}
+      {selectedColors.length > 0 && (
+        <ol
+          className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          aria-label="Selected colors in print order"
+        >
           {selectedColors.map((color, index) => (
             <li
               key={color.slug}
-              className="flex flex-wrap items-center gap-3 rounded-xl border border-mist bg-cloud p-3"
+              className="rounded-[var(--radius-card)] border-2 border-ink/15 bg-white p-3"
             >
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-ink font-mono text-xs font-bold text-white">
-                {index + 1}
-              </span>
-              <Swatch color={color} />
-              <span className="min-w-32 flex-1 font-display text-sm font-bold text-ink">{color.name}</span>
-              <span className="flex gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-chip)] bg-ink text-xs font-bold text-white">
+                  {index + 1}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="size-7 shrink-0 rounded-[var(--radius-chip)] border border-ink/30"
+                  style={{ background: color.swatch ?? color.hex }}
+                />
+                <span className="min-w-0 flex-1 truncate font-display text-sm font-bold text-ink">
+                  {color.name}
+                </span>
+              </div>
+              <div className="mt-2 flex gap-1.5">
                 <button
                   type="button"
                   disabled={disabled || index === 0}
                   onClick={() => reorder(index, -1)}
-                  className="grid size-11 cursor-pointer place-items-center rounded-full border border-navy/30 bg-white font-mono text-navy hover:bg-mist disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label={`Move ${color.name} up`}
+                  className="grid h-11 flex-1 cursor-pointer place-items-center rounded-[var(--radius-chip)] border-2 border-ink/20 bg-white text-ink hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label={`Move ${color.name} earlier`}
                 >
                   ↑
                 </button>
@@ -233,8 +231,8 @@ export default function ColorPicker({
                   type="button"
                   disabled={disabled || index === selectedColors.length - 1}
                   onClick={() => reorder(index, 1)}
-                  className="grid size-11 cursor-pointer place-items-center rounded-full border border-navy/30 bg-white font-mono text-navy hover:bg-mist disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label={`Move ${color.name} down`}
+                  className="grid h-11 flex-1 cursor-pointer place-items-center rounded-[var(--radius-chip)] border-2 border-ink/20 bg-white text-ink hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label={`Move ${color.name} later`}
                 >
                   ↓
                 </button>
@@ -242,71 +240,17 @@ export default function ColorPicker({
                   type="button"
                   disabled={disabled}
                   onClick={() => toggleColor(color)}
-                  className="min-h-11 cursor-pointer rounded-full px-3 font-display text-sm font-bold text-navy underline decoration-mist underline-offset-4 hover:decoration-navy disabled:cursor-not-allowed disabled:opacity-40"
+                  className="grid h-11 flex-1 cursor-pointer place-items-center rounded-[var(--radius-chip)] border-2 border-ink/20 bg-white text-ink hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label={`Remove ${color.name}`}
                 >
-                  Remove <span className="sr-only">{color.name}</span>
+                  ×
                 </button>
-              </span>
+              </div>
             </li>
           ))}
         </ol>
-      ) : (
-        <p className="mt-5 rounded-xl bg-cloud px-4 py-3 text-sm font-medium text-ink">
-          No colors selected — the club will choose an available color.
-        </p>
       )}
 
-      {atLimit && (
-        <p id="color-limit-message" className="mt-3 text-sm font-semibold text-navy" role="status">
-          Four-color limit reached. Remove a selected color before choosing another.
-        </p>
-      )}
-
-      <div className="mt-6">
-        <label htmlFor="color-search" className="mb-2 block font-display text-[15px] font-bold text-ink">
-          Search {materialLabel} colors by name
-        </label>
-        <input
-          id="color-search"
-          type="search"
-          value={search}
-          disabled={disabled}
-          onChange={(event) => setSearch(event.currentTarget.value)}
-          className="field"
-          placeholder="Try navy, copper, or rainbow"
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="mt-5 border-y border-mist" aria-label={`${materialLabel} color families`}>
-        {grouped.map(({ family, colors }) => (
-          <FamilySection
-            key={family.slug}
-            family={family}
-            colors={colors}
-            open={Boolean(search.trim()) || expanded.has(family.slug)}
-            onToggle={(open) => {
-              if (search.trim()) return;
-              setExpanded((current) => {
-                const next = new Set(current);
-                if (open) next.add(family.slug);
-                else next.delete(family.slug);
-                return next;
-              });
-            }}
-            selected={selected}
-            atLimit={atLimit}
-            disabled={disabled}
-            onToggleColor={toggleColor}
-          />
-        ))}
-      </div>
-
-      {available.length === 0 && (
-        <p className="mt-4 rounded-xl bg-cloud px-4 py-3 text-sm text-slate" role="status">
-          No {materialLabel} colors match “{search}”. Try another name.
-        </p>
-      )}
       {error && (
         <p id="colors-error" className="mt-3 text-sm font-semibold text-[#9b3028]">
           {error}

@@ -11,19 +11,19 @@ export const metadata: Metadata = {
 const steps = [
   {
     title: "Tell us what you need",
-    body: "Share the purpose, quantity, material, colors, and any date we should know about.",
+    body: "Share the purpose, quantity, material, colors, and anything else you think we should know about.",
   },
   {
     title: "Add your model",
-    body: "Use a secure model link, upload an STL or 3MF file, or include both.",
+    body: "Use an online model link, upload an STL or 3MF file, or include both.",
   },
   {
     title: "We look it over",
-    body: "The club checks the geometry, material choice, and whether the request is practical.",
+    body: "We check the geometry, material choice, and whether the request can be fufilled.",
   },
   {
     title: "Track it yourself",
-    body: "Your confirmation includes a private status link that works even if an email does not arrive.",
+    body: "Your confirmation includes a private status link with additionnal email updates.",
   },
 ];
 
@@ -34,11 +34,13 @@ export default function Request() {
         label="Print request"
         accent="yellow"
         title="Tell us what you want to make."
-        lead="Share the project, choose a material and colors, then add a model link or file. The club will review what is practical and give you a private page for updates."
+        lead="Share the project, choose a material and colors, then add a model link or file. We will review your request and notify you about updates."
       />
 
       <section className="px-5 py-10">
-        <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.35fr_.65fr] lg:items-start">
+        {/* Wider than the other pages on purpose: the colour step is a grid of
+            swatches, and at the old 1.35/.65 split it got six to a row. */}
+        <div className="mx-auto grid max-w-[80rem] gap-6 lg:grid-cols-[1.65fr_.7fr] lg:items-start">
           <RequestForm />
 
           <aside className="grid gap-5 lg:sticky lg:top-[calc(var(--header-height)+1.5rem)]">

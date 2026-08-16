@@ -9,6 +9,7 @@ import {
   useState,
   type DragEvent,
 } from "react";
+import type { FilamentColor } from "../../lib/filament-colors";
 import { uploadModelFile } from "../../lib/client-upload";
 import ModelPreview from "./ModelPreview";
 import { formatFileSize, isValidEmail, validateModelFile } from "./request-form-utils";
@@ -30,6 +31,7 @@ const ModelFileUpload = forwardRef<
   ModelFileUploadHandle,
   {
     email: string;
+    colors: readonly FilamentColor[];
     getFormStartedAt: () => number;
     website: string;
     turnstileRequired: boolean;
@@ -41,6 +43,7 @@ const ModelFileUpload = forwardRef<
   }
 >(function ModelFileUpload({
   email,
+  colors,
   getFormStartedAt,
   website,
   turnstileRequired,
@@ -133,6 +136,14 @@ const ModelFileUpload = forwardRef<
         ? "Model checked locally. It uploads automatically when you send the request."
         : "Model checked locally. The visual preview is unavailable, but the file will still upload when you send the request.",
     );
+  }, []);
+
+  /* Repainting swaps the stored thumbnail and nothing else: the file has not
+     changed, so the stage, the notice and any completed verification all
+     stand. The upload reads preview.thumbnail at submit time, which is why
+     the club receives the model in the colours the requester arranged. */
+  const handleRepaint = useCallback((thumbnail: string | null) => {
+    setPreview((current) => (current ? { ...current, thumbnail } : current));
   }, []);
 
   const handlePreviewError = useCallback((message: string) => {
@@ -281,7 +292,7 @@ const ModelFileUpload = forwardRef<
         }}
         onDrop={handleDrop}
         className={`rounded-[var(--radius-card)] border-2 border-dashed p-5 transition-colors sm:p-6 ${
-          dragging ? "border-navy bg-cloud" : "border-slate/40 bg-white"
+          dragging ? "border-ink bg-signal/15" : "border-ink/30 bg-white"
         }`}
       >
         <input
@@ -310,14 +321,14 @@ const ModelFileUpload = forwardRef<
             type="button"
             disabled={disabled}
             onClick={() => inputRef.current?.click()}
-            className="min-h-11 shrink-0 cursor-pointer rounded-full border border-navy/35 bg-white px-5 font-display text-sm font-bold text-navy transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-55"
+            className="min-h-11 shrink-0 cursor-pointer rounded-[var(--radius-chip)] border-2 border-ink bg-white px-5 font-display text-sm font-bold text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-55"
           >
             {file ? "Choose another file" : "Choose a file"}
           </button>
         </div>
 
         {!file && (
-          <p className="mt-5 rounded-xl bg-cloud px-4 py-3 text-center font-mono text-xs font-semibold uppercase tracking-[0.06em] text-slate">
+          <p className="mt-5 rounded-[var(--radius-card)] bg-cloud px-4 py-3 text-center font-display text-sm font-bold text-slate">
             Or drag one file here
           </p>
         )}
@@ -325,7 +336,13 @@ const ModelFileUpload = forwardRef<
 
       {file && (
         <div className="mt-4 grid gap-4">
-          <ModelPreview file={file} onReady={handlePreviewReady} onError={handlePreviewError} />
+          <ModelPreview
+            file={file}
+            colors={colors}
+            onReady={handlePreviewReady}
+            onError={handlePreviewError}
+            onRepaint={handleRepaint}
+          />
 
           {exceedsConfiguredBuildPlate && preview && buildPlate && (
             <p className="rounded-xl border border-signal bg-[#fff9e8] px-4 py-3 text-sm font-medium text-ink" role="status">
@@ -333,11 +350,11 @@ const ModelFileUpload = forwardRef<
             </p>
           )}
 
-          <div className="rounded-xl border border-mist bg-white p-4">
+          <div className="rounded-[var(--radius-card)] border-2 border-ink/15 bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-display text-sm font-bold text-ink">{file.name}</p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.06em] text-slate">
+                <p className="mt-1 text-sm text-slate">
                   {formatFileSize(file.size)} · {file.name.split(".").pop()?.toUpperCase()}
                 </p>
               </div>

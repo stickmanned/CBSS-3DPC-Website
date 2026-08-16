@@ -1,11 +1,21 @@
 import Link from "next/link";
-import { club, nav } from "../lib/content";
+import { club, heroPhotos, nav } from "../lib/content";
 import { FILAMENT_COLORS } from "../lib/filament-colors";
 
 /* Ft8 Marquee + colophon. The marquee scrolls filament names because they
    are real inventory, not a tagline repeated for texture. Honours
    prefers-reduced-motion, where it stops and becomes a plain strip. */
 const MARQUEE = FILAMENT_COLORS.filter((color) => !color.swatch).slice(0, 40);
+
+/* One entry per distinct licence in use, so the line stays short as photos
+   are swapped out rather than growing a name per image. */
+const CREDITS = Array.from(
+  new Map(
+    heroPhotos
+      .filter((p) => p.credit)
+      .map((p) => [p.credit!.licence, p.credit!])
+  ).values()
+);
 
 export default function SiteFooter() {
   return (
@@ -86,9 +96,31 @@ export default function SiteFooter() {
           </div>
         </dl>
 
-        <p className="text-sm text-slate sm:col-span-2 lg:col-span-1">
-          Copyright © 2026 William Wen. All rights reserved.
-        </p>
+        <div className="text-sm text-slate sm:col-span-2 lg:col-span-1">
+          <p>Copyright © 2026 William Wen. All rights reserved.</p>
+          {CREDITS.length > 0 && (
+            /* Required, not decorative: several hero placeholders are CC BY-SA,
+               which obliges visible attribution. When the placeholders are
+               replaced with club photos this block empties itself. */
+            <p className="mt-3 text-xs leading-relaxed">
+              Placeholder hero photos via{" "}
+              {CREDITS.map((c, i) => (
+                <span key={c.url}>
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-navy"
+                  >
+                    {c.licence}
+                  </a>
+                  {i < CREDITS.length - 1 ? ", " : ""}
+                </span>
+              ))}{" "}
+              on Wikimedia Commons.
+            </p>
+          )}
+        </div>
       </div>
     </footer>
   );

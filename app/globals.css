@@ -1704,6 +1704,8 @@ button {
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
   animation: rainbow-slide 6s linear infinite;
 }
 
@@ -1719,6 +1721,48 @@ button {
   .rainbow-text {
     animation: none;
     background-size: 100% 100%;
+  }
+}
+
+/* ---- Cycling hero word --------------------------------------------------
+   Every word is rendered, stacked in a single grid cell, and only one is
+   opaque. The stack takes the width of its widest child, so the period after
+   it never moves and the headline never reflows mid-cycle — no measuring, no
+   layout thrash, and it is already correct on the server's first paint.
+   ------------------------------------------------------------------------ */
+.word-cycle {
+  display: inline-grid;
+  grid-template-areas: "word";
+  vertical-align: baseline;
+}
+
+.word-cycle__word {
+  grid-area: word;
+  opacity: 0;
+  transform: translateY(0.14em);
+  transition: opacity 260ms var(--ease-out), transform 260ms var(--ease-out);
+  /* The other thirteen words are still in the DOM. Without this, selecting
+     the headline or copying it drags all of them along. */
+  user-select: none;
+  /* Extra bottom padding prevents deep glyph descenders (e.g. g, p, q, y, j)
+     from being clipped by the background-clip text bounding box. Negative margin
+     preserves exact headline geometry without layout shifts. */
+  padding-block: 0.1em 0.25em;
+  margin-block: -0.1em -0.25em;
+}
+
+.word-cycle__word.is-current {
+  opacity: 1;
+  transform: none;
+  user-select: auto;
+}
+
+/* Reduced motion stops the cycle in the component, so nothing but the first
+   word is ever current. Dropping the transition too keeps the initial paint
+   from fading in. */
+@media (prefers-reduced-motion: reduce) {
+  .word-cycle__word {
+    transition: none;
   }
 }
 
@@ -1787,31 +1831,254 @@ button {
   to { transform: translateX(-50%); }
 }
 
-/* A filament chip. Square, hairline-edged, and it pops forward rather than
-   growing a shadow. 44px hit target is not possible for 238 of these, so the
-   control is deliberately non-essential: every chip is decorative discovery,
-   and the real colour picker lives in the request form where it has room. */
-.filament-chip {
-  display: block;
-  width: 22px;
-  height: 22px;
-  border: 1px solid rgb(27 34 51 / 0.28);
-  border-radius: var(--radius-chip);
-  cursor: pointer;
-  transition: transform 140ms var(--ease-out), border-color 140ms var(--ease-out);
+/* ---- Filament spool -----------------------------------------------------
+   A spool seen face on: flange, the wound filament as an annulus, a cardboard
+   core with a bore, and the loose end clipped at the rim. Every coloured part
+   paints `--spool-fill`, which is either a hex or the CSS gradient stored on
+   a multicolour filament — so nothing in here or in SpoolPicker branches on
+   which kind of colour is loaded.
+
+   The dark outline matters more than it looks: a third of the catalogue is
+   white, natural, or translucent, and without an edge those load as a hole in
+   the page rather than as a spool.
+   ------------------------------------------------------------------------ */
+.spool {
+  position: relative;
+  width: min(100%, 15rem);
+  aspect-ratio: 1;
+  margin-inline: auto;
 }
 
-.filament-chip:hover,
-.filament-chip:focus-visible {
-  border-color: var(--color-ink);
-  transform: scale(1.35);
+.spool__flange {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-ink);
+  background: var(--color-snow);
+  /* Keeps the strand from showing through the flange face. */
+  overflow: hidden;
 }
 
+.spool__wind,
+.spool__grooves {
+  position: absolute;
+  inset: 7%;
+  border-radius: 50%;
+  /* Punches the core out, leaving the winding as a ring rather than a disc. */
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 27%, #000 27.5%);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 27%, #000 27.5%);
+}
+
+.spool__wind {
+  background: var(--spool-fill, var(--color-signal));
+}
+
+/* Concentric lines: filament is wound in layers, and without them a large
+   circle of flat colour reads as a coaster. */
+.spool__grooves {
+  background: repeating-radial-gradient(
+    circle at 50% 50%,
+    rgb(27 34 51 / 0.16) 0 1px,
+    transparent 1px 7px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+.spool__hub {
+  position: absolute;
+  inset: 33%;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--color-ink);
+  background: var(--color-cloud);
+}
+
+.spool__bore {
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  background: var(--color-paper);
+  box-shadow: inset 0 0 0 2px rgb(27 34 51 / 0.5);
+}
+
+/* The end of the filament, tucked through the rim. Small, and the thing that
+   settles what the circle is before the label does. */
+.spool__strand {
+  position: absolute;
+  top: 10%;
+  right: 0;
+  width: 24%;
+  height: 4.5%;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-ink);
+  background: var(--spool-fill, var(--color-signal));
+  transform: rotate(-35deg);
+}
+
+/* Phones get a smaller spool: at 15rem it pushes the colours themselves below
+   the fold, and the colours are what the section is for. */
 @media (max-width: 40rem) {
-  .filament-chip {
-    width: 18px;
-    height: 18px;
+  .spool {
+    width: min(100%, 11rem);
   }
+}
+
+/* The request form's fields take a heavier focus ring than the rest of the
+   site: it is the one place where losing your position costs typed work.
+   This used to be a <style> element injected inside the <form>. */
+.request-form .field:focus-visible {
+  outline: 3px solid var(--color-signal);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--color-ink);
+}
+
+/* ---- Swatch grid --------------------------------------------------------
+   Tiles wide enough to judge a colour by and to hit with a thumb, spaced
+   enough that 238 of them read as a catalogue rather than as noise. Names
+   arrive on hover or focus, from a single label positioned in JS — see
+   SpoolPicker for why one shared label beats one per tile.
+   ------------------------------------------------------------------------ */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+  gap: 0.75rem;
+  padding: 1rem 1rem 1.25rem;
+}
+
+.swatch {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-card);
+  border: 2px solid rgb(27 34 51 / 0.22);
+  cursor: pointer;
+  transition: transform var(--dur-hover) var(--ease-spring),
+    border-color var(--dur-hover) var(--ease-out);
+}
+
+.swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Print order, drawn on the tile itself. Ink on white rather than a tint, so
+   it stays legible on a black filament and on a pale one. */
+.swatch__badge {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 2px solid var(--color-ink);
+  background: var(--color-snow);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.swatch:hover,
+.swatch:focus-visible {
+  border-color: var(--color-ink);
+  transform: scale(1.12);
+}
+
+/* The selected tile keeps a ring rather than growing, so the one that is
+   loaded stays identifiable while another is under the cursor. */
+.swatch[aria-selected="true"] {
+  border-color: var(--color-ink);
+  box-shadow: 0 0 0 3px var(--color-signal);
+}
+
+/* Hallmark · component: part-colour swatch · genre: playful · theme: custom
+ * states: default · hover · focus · active · checked · disabled
+ * The number, not the colour, is what identifies a filament here: two of the
+ * four chosen colours can be near-identical greys, and print order is the
+ * thing the club actually needs from this control. */
+.part-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-chip);
+  border: 2px solid rgb(27 34 51 / 0.22);
+  cursor: pointer;
+  transition: transform var(--dur-hover) var(--ease-spring),
+    border-color var(--dur-hover) var(--ease-out);
+}
+
+.part-swatch:hover {
+  border-color: var(--color-ink);
+  transform: scale(1.08);
+}
+
+.part-swatch:active {
+  transform: scale(0.96);
+}
+
+.part-swatch.is-current {
+  border-color: var(--color-ink);
+  box-shadow: 0 0 0 3px var(--color-signal);
+}
+
+.part-swatch__index {
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-ink);
+  background: var(--color-snow);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+}
+
+/* The number is a tiebreaker, not decoration: it shows on the chosen swatch
+   and whenever a swatch is under the cursor or keyboard. */
+.part-swatch.is-current .part-swatch__index,
+.part-swatch:hover .part-swatch__index,
+.part-swatch:focus-visible .part-swatch__index {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .part-swatch:hover,
+  .part-swatch:active {
+    transform: none;
+  }
+}
+
+.swatch-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-chip);
+  background: var(--color-ink);
+  color: var(--color-snow);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 120ms var(--ease-out);
+}
+
+.swatch-tip.is-on {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1826,8 +2093,8 @@ button {
     animation: none;
   }
 
-  .filament-chip:hover,
-  .filament-chip:focus-visible {
+  .swatch:hover,
+  .swatch:focus-visible {
     transform: none;
   }
 }

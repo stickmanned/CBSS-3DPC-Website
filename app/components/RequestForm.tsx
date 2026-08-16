@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { submitPrintRequest } from "../request/actions";
 import Button from "./Button";
-import ColorPicker, { colorsUnavailableForMaterial } from "./request/ColorPicker";
+import ColorPicker, {
+  colorsUnavailableForMaterial,
+  getFilamentColor,
+} from "./request/ColorPicker";
 import MaterialSelector from "./request/MaterialSelector";
 import ModelFileUpload, { type ModelFileUploadHandle } from "./request/ModelFileUpload";
 import TurnstileField from "./request/TurnstileField";
@@ -114,6 +117,17 @@ export default function RequestForm() {
   const [pending, setPending] = useState(false);
   const [uploadingModel, setUploadingModel] = useState(false);
   const [success, setSuccess] = useState<SuccessState | null>(null);
+
+  /* Resolved once per change rather than per render: this array is a
+     dependency of the preview's repaint effect, and a fresh array every
+     render would repaint the model on every keystroke. */
+  const chosenColors = useMemo(
+    () =>
+      colorSlugs
+        .map((slug) => getFilamentColor(slug))
+        .filter((color): color is NonNullable<typeof color> => Boolean(color)),
+    [colorSlugs],
+  );
 
   const emailWarning = getSchoolEmailWarning(email);
   const quantityNote = getQuantityNote(quantity);
@@ -314,10 +328,10 @@ export default function RequestForm() {
   if (success) {
     return (
       <section
-        className="build-grid overflow-hidden rounded-[var(--radius-card)] border border-mist bg-white p-6 shadow-md sm:p-8 lg:p-10"
+        className="overflow-hidden rounded-[var(--radius-card)] border-2 border-ink bg-white p-6 sm:p-8 lg:p-10"
         aria-labelledby="request-success-title"
       >
-        <p className="eyebrow text-slate">Request received</p>
+        <p className="font-display text-sm font-bold text-navy">Request received</p>
         <h2
           ref={successHeadingRef}
           id="request-success-title"
@@ -331,8 +345,8 @@ export default function RequestForm() {
         </p>
 
         <dl className="mt-7 grid gap-4 rounded-[var(--radius-card)] bg-cloud p-5 sm:grid-cols-[auto_1fr] sm:items-center sm:p-6">
-          <dt className="eyebrow text-slate">Reference</dt>
-          <dd className="break-all font-mono text-lg font-bold text-ink">{success.ref}</dd>
+          <dt className="font-display text-sm font-bold text-slate">Reference</dt>
+          <dd className="break-all font-display text-lg font-bold text-ink">{success.ref}</dd>
         </dl>
 
         <a href={success.statusUrl} className="btn btn--primary mt-7">
@@ -373,19 +387,10 @@ export default function RequestForm() {
       onFocusCapture={getFormStartedAt}
       onPointerDownCapture={getFormStartedAt}
       aria-busy={pending}
-      className="request-form rounded-[var(--radius-card)] border border-mist bg-white p-6 shadow-sm sm:p-8 lg:p-10"
+      className="request-form rounded-[var(--radius-card)] border-2 border-ink bg-white p-6 sm:p-8 lg:p-10"
     >
-      <style>{`
-        .request-form .field:focus-visible {
-          outline: 3px solid var(--color-signal) !important;
-          outline-offset: 2px !important;
-          box-shadow: 0 0 0 5px var(--color-ink) !important;
-        }
-      `}</style>
-
       <div className="border-b border-mist pb-6">
-        <p className="eyebrow text-slate">3D printing request</p>
-        <h2 className="mt-3 max-w-[18ch] text-3xl text-ink sm:text-4xl">
+        <h2 className="max-w-[18ch] text-3xl text-ink sm:text-4xl">
           Give the club enough detail to assess the print.
         </h2>
         <p className="mt-4 max-w-[64ch] text-sm leading-relaxed text-slate">
@@ -420,8 +425,7 @@ export default function RequestForm() {
       )}
 
       <section className="border-b border-mist py-8" aria-labelledby="request-details-heading">
-        <p className="eyebrow text-slate">01 · Request details</p>
-        <h3 id="request-details-heading" className="mt-3 text-2xl text-ink">
+        <h3 id="request-details-heading" className="text-2xl text-ink">
           Tell us what you need
         </h3>
 
@@ -574,12 +578,8 @@ export default function RequestForm() {
         </div>
       </section>
 
-      <section className="border-b border-mist py-8" aria-labelledby="request-material-heading">
-        <p className="eyebrow text-slate">02 · Material</p>
-        <h3 id="request-material-heading" className="sr-only">
-          Choose a material
-        </h3>
-        <div className="mt-4">
+      <section className="border-b border-mist py-8" aria-label="Material">
+        <div>
           <MaterialSelector
             value={material}
             onChange={chooseMaterial}
@@ -590,12 +590,8 @@ export default function RequestForm() {
         </div>
       </section>
 
-      <section className="border-b border-mist py-8" aria-labelledby="request-colors-heading">
-        <p className="eyebrow text-slate">03 · Color order</p>
-        <h3 id="request-colors-heading" className="sr-only">
-          Choose colors in order
-        </h3>
-        <div className="mt-4">
+      <section className="border-b border-mist py-8" aria-label="Colors">
+        <div>
           <ColorPicker
             material={material}
             selected={colorSlugs}
@@ -611,8 +607,7 @@ export default function RequestForm() {
       </section>
 
       <section id="model-source" className="border-b border-mist py-8" aria-labelledby="request-model-heading">
-        <p className="eyebrow text-slate">04 · Model</p>
-        <h3 id="request-model-heading" className="mt-3 text-2xl text-ink">
+        <h3 id="request-model-heading" className="text-2xl text-ink">
           Add a model link, a file, or both
         </h3>
         <p className="mt-3 max-w-[64ch] text-sm text-slate">
@@ -658,13 +653,14 @@ export default function RequestForm() {
 
         <div className="my-6 flex items-center gap-4" aria-hidden="true">
           <span className="h-px flex-1 bg-mist" />
-          <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-slate">or</span>
+          <span className="font-display text-sm font-bold text-slate">or</span>
           <span className="h-px flex-1 bg-mist" />
         </div>
 
         <ModelFileUpload
           ref={modelUploadRef}
           email={email}
+          colors={chosenColors}
           getFormStartedAt={getFormStartedAt}
           website={website}
           turnstileRequired={Boolean(turnstileSiteKey)}

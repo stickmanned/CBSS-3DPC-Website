@@ -32,7 +32,8 @@ export async function GET(
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   } catch (error) {
-    if (error instanceof StorageConfigurationError) return genericError(503);
-    return genericError(404);
+    const cause = { route: "admin/files", error };
+    if (error instanceof StorageConfigurationError) return genericError(503, cause);
+    return genericError(404, cause);
   }
 }

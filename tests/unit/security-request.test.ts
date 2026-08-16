@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  genericError,
   readJsonBody,
   requireSameOrigin,
   UnsafeRequestError,
@@ -10,6 +11,30 @@ describe("mutation request security", () => {
     delete process.env.APP_ORIGIN;
     delete process.env.NEXT_PUBLIC_SITE_URL;
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("records the cause of a generic response without disclosing it", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = genericError(400, {
+      route: "uploads/complete",
+      error: new RangeError("central directory offset mismatch"),
+    });
+
+    expect(logged).toHaveBeenCalledWith(
+      expect.stringContaining("central directory offset mismatch"),
+    );
+    expect(logged.mock.calls[0]![0]).toContain("uploads/complete");
+    // The requester still learns nothing beyond the refusal itself.
+    await expect(response.json()).resolves.toEqual({
+      error: "Request could not be processed.",
+    });
+  });
+
+  it("logs nothing when a caller passes no cause", () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    genericError(429);
+    expect(logged).not.toHaveBeenCalled();
   });
 
   it("requires the canonical HTTPS origin in production and rejects forged hosts", () => {

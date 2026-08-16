@@ -20,6 +20,7 @@ import {
 } from "@/app/lib/security/hmac-token";
 import {
   clientIp,
+  logRequestFailure,
   requireSameOrigin,
   UnsafeRequestError,
 } from "@/app/lib/security/request-security";
@@ -321,11 +322,15 @@ export async function submitPrintRequest(formData: FormData): Promise<SubmitPrin
       error instanceof TurnstileConfigurationError ||
       error instanceof StorageConfigurationError
     ) {
+      logRequestFailure("request/submit", 503, error);
       return {
         ok: false,
         formError: "The print queue is temporarily unavailable. Your form details are still here.",
       };
     }
+    // Anything reaching here is unclassified: without a record of it, a
+    // requester's "it just says try again" is unreproducible.
+    logRequestFailure("request/submit", 500, error);
     return {
       ok: false,
       formError: "The request could not be saved. Your form details are still here; try again.",

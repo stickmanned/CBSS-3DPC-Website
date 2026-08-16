@@ -102,9 +102,41 @@ export function clientIp(request: Request): string {
   return candidate && isIP(candidate) ? candidate : "unknown";
 }
 
-export function genericError(status: 400 | 403 | 404 | 409 | 413 | 429 | 503) {
+/**
+ * The body stays deliberately vague so a caller cannot probe the queue with it.
+ * That vagueness is only safe if the real cause survives somewhere, so every
+ * generic response records one server-side: this is the single point where a
+ * failure stops being specific, and an unlogged one leaves an operator staring
+ * at "Request could not be processed." with nothing to act on.
+ */
+export function logRequestFailure(
+  route: string,
+  status: number,
+  error: unknown,
+): void {
+  const detail =
+    error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  console.error(`[${route}] ${status} ${detail}`);
+  // An unrecognized failure is a bug rather than a rejected input, so keep the
+  // stack that identifies it.
+  if (status >= 500 && error instanceof Error && error.stack) {
+    console.error(error.stack);
+  }
+}
+
+export function genericError(
+  status: 400 | 403 | 404 | 409 | 413 | 429 | 503,
+  cause?: { route: string; error?: unknown },
+) {
+  if (cause) logRequestFailure(cause.route, status, cause.error);
+
   const response = NextResponse.json(
-    { error: status === 429 ? "Too many requests. Try again later." : "Request could not be processed." },
+    {
+      error:
+        status === 429
+          ? "Too many requests. Try again later."
+          : "Request could not be processed.",
+    },
     { status },
   );
   response.headers.set("Cache-Control", "no-store");

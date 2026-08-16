@@ -16,6 +16,23 @@ const ZIP_RANGE_BYTES = 256 * 1024;
 const ZIP_UTF8_FLAG = 0x0800;
 const ZIP_ALLOWED_FLAGS = ZIP_UTF8_FLAG | 0x0006;
 
+// ZIP64. Fusion 360, Bambu Studio, PrusaSlicer and Orca write these records
+// into every 3MF they export, whatever its size, so a reader that rejects
+// ZIP64 outright rejects most real models. Each oversized field is replaced
+// by an all-ones sentinel and its true value moves into the 0x0001 extra
+// field, in the fixed order uncompressed, compressed, local offset, disk.
+// Consulting the extra ONLY for fields holding a sentinel, and only in that
+// order, keeps the mapping unambiguous: no field can be given two values.
+const ZIP64_EXTRA_ID = 0x0001;
+const ZIP64_EOCD_LOCATOR_SIGNATURE = 0x07064b50;
+const ZIP64_EOCD_SIGNATURE = 0x06064b50;
+const ZIP64_EOCD_LOCATOR_BYTES = 20;
+const ZIP64_EOCD_BYTES = 56;
+const ZIP64_EOCD_DECLARED_BYTES = ZIP64_EOCD_BYTES - 12;
+const ZIP_MAX_VERSION_NEEDED = 45;
+const U16_SENTINEL = 0xffff;
+const U32_SENTINEL = 0xffffffff;
+
 const MAX_CENTRAL_DIRECTORY_BYTES = 256 * 1024;
 const MAX_3MF_ENTRIES = 512;
 const MAX_3MF_UNCOMPRESSED_BYTES = 200 * 1024 * 1024;
@@ -83,6 +100,17 @@ function uint16(bytes: Uint8Array, offset: number): number {
     offset,
     true,
   );
+}
+
+function uint64(bytes: Uint8Array, offset: number): number {
+  if (offset < 0 || offset + 8 > bytes.length) verificationFailure();
+  const value = new DataView(
+    bytes.buffer,
+    bytes.byteOffset,
+    bytes.byteLength,
+  ).getBigUint64(offset, true);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) verificationFailure();
+  return Number(value);
 }
 
 function startsWith(bytes: Uint8Array, signature: number[]): boolean {
@@ -245,16 +273,56 @@ function assertSafeArchivePath(filename: string): void {
   }
 }
 
-function assertSafeExtraFields(bytes: Uint8Array): void {
+/**
+ * Walks the extra-field block, rejecting strong encryption outright and
+ * returning the ZIP64 values a header's sentinels may need. Reading the block
+ * rather than refusing it is what lets ordinary exporter output through; every
+ * other structural check still applies to the values it yields.
+ */
+function parseExtraFields(bytes: Uint8Array): number[] {
   let offset = 0;
+  let zip64: number[] | null = null;
+
   while (offset < bytes.length) {
     if (offset + 4 > bytes.length) verificationFailure();
     const fieldId = uint16(bytes, offset);
     const fieldSize = uint16(bytes, offset + 2);
-    if (fieldId === 0x0001 || fieldId === 0x9901) verificationFailure();
+    // 0x9901 is the AES marker: an encrypted entry is never inspectable.
+    if (fieldId === 0x9901) verificationFailure();
+    if (offset + 4 + fieldSize > bytes.length) verificationFailure();
+
+    if (fieldId === ZIP64_EXTRA_ID) {
+      // A second ZIP64 block would make the sentinel mapping ambiguous.
+      if (zip64) verificationFailure();
+      const words = Math.floor(fieldSize / 8);
+      // Only a trailing 4-byte disk-start field may follow the 8-byte values.
+      const remainder = fieldSize - words * 8;
+      if (remainder !== 0 && remainder !== 4) verificationFailure();
+      zip64 = [];
+      for (let index = 0; index < words; index += 1) {
+        zip64.push(uint64(bytes, offset + 4 + index * 8));
+      }
+    }
+
     offset += 4 + fieldSize;
-    if (offset > bytes.length) verificationFailure();
   }
+
+  if (offset !== bytes.length) verificationFailure();
+  return zip64 ?? [];
+}
+
+/**
+ * Hands back the ZIP64 replacements in the order the specification fixes:
+ * uncompressed size, compressed size, local header offset. A sentinel with no
+ * value behind it fails rather than defaulting.
+ */
+function sentinelResolver(zip64Values: number[]) {
+  let cursor = 0;
+  return (value: number): number => {
+    if (value !== U32_SENTINEL) return value;
+    if (cursor >= zip64Values.length) verificationFailure();
+    return zip64Values[cursor++]!;
+  };
 }
 
 function inspectCentralDirectory(
@@ -279,25 +347,24 @@ function inspectCentralDirectory(
     const flags = uint16(bytes, offset + 8);
     const method = uint16(bytes, offset + 10);
     const crc32 = uint32(bytes, offset + 16);
-    const compressedSize = uint32(bytes, offset + 20);
-    const uncompressedSize = uint32(bytes, offset + 24);
+    const rawCompressedSize = uint32(bytes, offset + 20);
+    const rawUncompressedSize = uint32(bytes, offset + 24);
     const nameLength = uint16(bytes, offset + 28);
     const extraLength = uint16(bytes, offset + 30);
     const commentLength = uint16(bytes, offset + 32);
     const diskStart = uint16(bytes, offset + 34);
-    const localOffset = uint32(bytes, offset + 42);
+    const rawLocalOffset = uint32(bytes, offset + 42);
     const recordLength =
       ZIP_CENTRAL_HEADER_BYTES + nameLength + extraLength + commentLength;
 
     if (
-      versionNeeded > 20 ||
+      versionNeeded > ZIP_MAX_VERSION_NEEDED ||
       flags & ~ZIP_ALLOWED_FLAGS ||
       flags & 0x0008 ||
       (method !== 0 && method !== 8) ||
       (method === 0 && flags & 0x0006) ||
-      compressedSize === 0xffffffff ||
-      uncompressedSize === 0xffffffff ||
-      localOffset === 0xffffffff ||
+      // ZIP64 can move this to the extra field, but a single-object archive
+      // never needs to: real exporters leave it zero, so keep refusing the rest.
       diskStart !== 0 ||
       nameLength < 1 ||
       nameLength > MAX_ENTRY_NAME_BYTES ||
@@ -323,7 +390,12 @@ function inspectCentralDirectory(
     names.add(duplicateKey);
 
     const extraStart = offset + ZIP_CENTRAL_HEADER_BYTES + nameLength;
-    assertSafeExtraFields(bytes.subarray(extraStart, extraStart + extraLength));
+    const resolve = sentinelResolver(
+      parseExtraFields(bytes.subarray(extraStart, extraStart + extraLength)),
+    );
+    const uncompressedSize = resolve(rawUncompressedSize);
+    const compressedSize = resolve(rawCompressedSize);
+    const localOffset = resolve(rawLocalOffset);
 
     if (
       uncompressedSize > MAX_3MF_ENTRY_BYTES ||
@@ -383,18 +455,16 @@ async function inspectLocalEntry(
   const flags = uint16(fixed, 6);
   const method = uint16(fixed, 8);
   const crc32 = uint32(fixed, 14);
-  const compressedSize = uint32(fixed, 18);
-  const uncompressedSize = uint32(fixed, 22);
+  const rawCompressedSize = uint32(fixed, 18);
+  const rawUncompressedSize = uint32(fixed, 22);
   const nameLength = uint16(fixed, 26);
   const extraLength = uint16(fixed, 28);
 
   if (
-    versionNeeded > 20 ||
+    versionNeeded > ZIP_MAX_VERSION_NEEDED ||
     flags !== entry.flags ||
     method !== entry.method ||
     crc32 !== entry.crc32 ||
-    compressedSize !== entry.compressedSize ||
-    uncompressedSize !== entry.uncompressedSize ||
     nameLength !== entry.rawName.length ||
     extraLength > MAX_LOCAL_EXTRA_BYTES
   ) {
@@ -410,7 +480,20 @@ async function inspectLocalEntry(
     : new Uint8Array();
   const localName = actualVariable.subarray(0, nameLength);
   if (!equalBytes(localName, entry.rawName)) verificationFailure();
-  assertSafeExtraFields(actualVariable.subarray(nameLength));
+
+  // The local header carries no offset field, so only the two sizes can be
+  // sentinels here. They must still agree with the central directory.
+  const resolve = sentinelResolver(
+    parseExtraFields(actualVariable.subarray(nameLength)),
+  );
+  const uncompressedSize = resolve(rawUncompressedSize);
+  const compressedSize = resolve(rawCompressedSize);
+  if (
+    compressedSize !== entry.compressedSize ||
+    uncompressedSize !== entry.uncompressedSize
+  ) {
+    verificationFailure();
+  }
 
   const dataStart = entry.localOffset + ZIP_LOCAL_HEADER_BYTES + variableLength;
   const dataEnd = dataStart + entry.compressedSize;
@@ -862,29 +945,76 @@ async function assert3mf(key: string, size: number): Promise<void> {
   const disk = uint16(tail, eocd + 4);
   const centralDisk = uint16(tail, eocd + 6);
   const entriesOnDisk = uint16(tail, eocd + 8);
-  const totalEntries = uint16(tail, eocd + 10);
-  const centralSize = uint32(tail, eocd + 12);
-  const centralOffset = uint32(tail, eocd + 16);
   const eocdOffset = tailStart + eocd;
+
+  let totalEntries = uint16(tail, eocd + 10);
+  let centralSize = uint32(tail, eocd + 12);
+  let centralOffset = uint32(tail, eocd + 16);
+  // Where the central directory must stop. ZIP64 slots its own record and
+  // locator between the directory and the classic EOCD, so the contiguity
+  // requirement moves back rather than being relaxed.
+  let centralDirectoryEnd = eocdOffset;
 
   if (
     disk !== 0 ||
     centralDisk !== 0 ||
     entriesOnDisk !== totalEntries ||
-    totalEntries < 1 ||
-    totalEntries === 0xffff ||
-    totalEntries > MAX_3MF_ENTRIES ||
-    centralSize < ZIP_CENTRAL_HEADER_BYTES ||
-    centralSize === 0xffffffff ||
-    centralSize > MAX_CENTRAL_DIRECTORY_BYTES ||
-    centralOffset === 0xffffffff ||
-    centralOffset + centralSize !== eocdOffset ||
-    centralOffset < ZIP_LOCAL_HEADER_BYTES
+    centralSize < ZIP_CENTRAL_HEADER_BYTES
   ) {
     verificationFailure();
   }
 
-  if (eocd >= 20 && uint32(tail, eocd - 20) === 0x07064b50) {
+  const hasZip64Locator =
+    eocdOffset >= ZIP64_EOCD_LOCATOR_BYTES &&
+    eocd >= ZIP64_EOCD_LOCATOR_BYTES &&
+    uint32(tail, eocd - ZIP64_EOCD_LOCATOR_BYTES) ===
+      ZIP64_EOCD_LOCATOR_SIGNATURE;
+
+  if (hasZip64Locator) {
+    const locator = eocd - ZIP64_EOCD_LOCATOR_BYTES;
+    const recordOffset = uint64(tail, locator + 8);
+    if (
+      uint32(tail, locator + 4) !== 0 ||
+      uint32(tail, locator + 16) !== 1 ||
+      recordOffset + ZIP64_EOCD_BYTES !== tailStart + locator
+    ) {
+      verificationFailure();
+    }
+
+    const record = await reader.read(recordOffset, ZIP64_EOCD_BYTES, false);
+    const recordEntries = uint64(record, 32);
+    const recordCentralSize = uint64(record, 40);
+    const recordCentralOffset = uint64(record, 48);
+    if (
+      uint32(record, 0) !== ZIP64_EOCD_SIGNATURE ||
+      // An extensible data sector would push the locator away from the record.
+      uint64(record, 4) !== ZIP64_EOCD_DECLARED_BYTES ||
+      uint16(record, 14) > ZIP_MAX_VERSION_NEEDED ||
+      uint32(record, 16) !== 0 ||
+      uint32(record, 20) !== 0 ||
+      uint64(record, 24) !== recordEntries ||
+      // A field that is not a sentinel must still agree with the record.
+      (totalEntries !== U16_SENTINEL && totalEntries !== recordEntries) ||
+      (centralSize !== U32_SENTINEL && centralSize !== recordCentralSize) ||
+      (centralOffset !== U32_SENTINEL && centralOffset !== recordCentralOffset)
+    ) {
+      verificationFailure();
+    }
+
+    totalEntries = recordEntries;
+    centralSize = recordCentralSize;
+    centralOffset = recordCentralOffset;
+    centralDirectoryEnd = recordOffset;
+  }
+
+  if (
+    totalEntries < 1 ||
+    totalEntries > MAX_3MF_ENTRIES ||
+    centralSize < ZIP_CENTRAL_HEADER_BYTES ||
+    centralSize > MAX_CENTRAL_DIRECTORY_BYTES ||
+    centralOffset + centralSize !== centralDirectoryEnd ||
+    centralOffset < ZIP_LOCAL_HEADER_BYTES
+  ) {
     verificationFailure();
   }
 

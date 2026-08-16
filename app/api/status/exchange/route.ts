@@ -62,9 +62,10 @@ export async function POST(request: Request) {
     );
     return response;
   } catch (error) {
+    const cause = { route: "status/exchange", error };
     if (error instanceof z.ZodError || error instanceof UnsafeRequestError) {
-      return genericError(400);
+      return genericError(400, cause);
     }
-    return genericError(503);
+    return genericError(503, cause);
   }
 }

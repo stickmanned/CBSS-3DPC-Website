@@ -1,9 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { BoundingBoxMm, PreviewMetadata } from "./types";
+import type { FilamentColor } from "../../lib/filament-colors";
+import type { BoundingBoxMm, ModelPart, PreviewMetadata } from "./types";
 
 type PreviewState = "parsing" | "ready" | "fallback" | "error";
+
+/* The colour a model renders in before any filament is chosen. */
+const UNPAINTED = 0x213366;
+
+/* Past this many parts the assignment panel stops being a control and starts
+   being a wall of rows. Bigger models still get painted — round-robin through
+   the chosen colours — they just do not get per-part pickers. */
+const MAX_ASSIGNABLE_PARTS = 12;
+
+/* A gradient filament has no single renderable colour, so the preview uses its
+   first stop. The panel still names it, so nobody thinks the spool is solid. */
+function renderColorOf(color: FilamentColor) {
+  return Number.parseInt(color.hex.replace("#", ""), 16);
+}
 
 function roundedDimensions(size: { x: number; y: number; z: number }): BoundingBoxMm {
   const round = (value: number) => Math.max(0.01, Math.round(value * 100) / 100);
@@ -12,19 +27,39 @@ function roundedDimensions(size: { x: number; y: number; z: number }): BoundingB
 
 export default function ModelPreview({
   file,
+  colors,
   onReady,
   onError,
+  onRepaint,
 }: {
   file: File;
+  /** The filaments chosen in the colour step, in print order. */
+  colors: readonly FilamentColor[];
   onReady: (metadata: PreviewMetadata) => void;
   onError: (message: string) => void;
+  /** A repainted thumbnail, so the club sees the model as it was arranged. */
+  onRepaint?: (thumbnail: string | null) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const rotateRef = useRef<(degrees: number) => void>(() => undefined);
   const resetRef = useRef<() => void>(() => undefined);
+  const paintRef = useRef<((assignment: Record<string, number>) => void) | null>(null);
+  const colorsRef = useRef(colors);
+  const repaintRef = useRef(onRepaint);
   const [state, setState] = useState<PreviewState>("parsing");
   const [dimensions, setDimensions] = useState<BoundingBoxMm | null>(null);
   const [angle, setAngle] = useState(0);
+  const [parts, setParts] = useState<ModelPart[]>([]);
+  const [assignment, setAssignment] = useState<Record<string, number>>({});
+
+  /* Read through refs inside the build effect so choosing a colour repaints
+     the existing scene instead of tearing down WebGL and re-parsing the file.
+     Synced in an effect, not during render, and declared before the build
+     effect so it is always the first to run. */
+  useEffect(() => {
+    colorsRef.current = colors;
+    repaintRef.current = onRepaint;
+  });
 
   useEffect(() => {
     const host = hostRef.current;
@@ -37,6 +72,9 @@ export default function ModelPreview({
     setState("parsing");
     setDimensions(null);
     setAngle(0);
+    setParts([]);
+    setAssignment({});
+    paintRef.current = null;
     previewHost.replaceChildren();
 
     async function buildPreview() {
@@ -60,7 +98,7 @@ export default function ModelPreview({
         geometry.computeVertexNormals();
         object = new THREE.Mesh(
           geometry,
-          new THREE.MeshStandardMaterial({ color: 0x213366, roughness: 0.72, metalness: 0.04 }),
+          new THREE.MeshStandardMaterial({ color: UNPAINTED, roughness: 0.72, metalness: 0.04 }),
         );
       } else if (extension === "3mf") {
         object = new ThreeMFLoader().parse(bytes);
@@ -86,6 +124,43 @@ export default function ModelPreview({
 
       const bboxMm = roundedDimensions(size);
       setDimensions(bboxMm);
+
+      /* Every mesh becomes a part, and a mesh with several material slots
+         becomes one part per slot — that is how a 3MF carries a multi-colour
+         object. The loaded materials are replaced with our own so that a
+         model arriving with baked-in colours still shows the club's filament
+         rather than whatever the designer exported. */
+      const paintable: Array<{ id: string; name: string; material: import("three").MeshStandardMaterial }> = [];
+      object.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return;
+        const slots = Array.isArray(child.material) ? child.material.length : 1;
+        const replacements = Array.from({ length: slots }, () =>
+          new THREE.MeshStandardMaterial({ color: UNPAINTED, roughness: 0.72, metalness: 0.04 }),
+        );
+        (Array.isArray(child.material) ? child.material : [child.material]).forEach((old) => old.dispose());
+        child.material = slots > 1 ? replacements : replacements[0];
+
+        replacements.forEach((material, slot) => {
+          const base = child.name?.trim() || `Part ${paintable.length + 1}`;
+          paintable.push({
+            id: `${child.uuid}:${slot}`,
+            name: slots > 1 ? `${base} · section ${slot + 1}` : base,
+            material,
+          });
+        });
+      });
+
+      const paint = (current: Record<string, number>) => {
+        const chosen = colorsRef.current;
+        paintable.forEach((part, index) => {
+          const target = chosen.length
+            ? chosen[(current[part.id] ?? index % chosen.length) % chosen.length]
+            : null;
+          part.material.color.setHex(target ? renderColorOf(target) : UNPAINTED);
+        });
+      };
+      paint({});
+      setParts(paintable.map(({ id, name }) => ({ id, name })));
 
       try {
         const [{ OrbitControls }] = await Promise.all([
@@ -183,19 +258,31 @@ export default function ModelPreview({
           renderer.render(scene, camera);
         };
 
+        const captureThumbnail = () => {
+          const thumbnailCanvas = document.createElement("canvas");
+          thumbnailCanvas.width = 360;
+          thumbnailCanvas.height = 240;
+          const thumbnailContext = thumbnailCanvas.getContext("2d");
+          if (!thumbnailContext) return null;
+          thumbnailContext.drawImage(renderer.domElement, 0, 0, 360, 240);
+          return thumbnailCanvas.toDataURL("image/webp", 0.82);
+        };
+
+        /* Repainting re-renders and re-captures rather than rebuilding: the
+           thumbnail the club receives is the model in the colours the
+           requester actually arranged. */
+        paintRef.current = (current) => {
+          paint(current);
+          renderer.render(scene, camera);
+          repaintRef.current?.(captureThumbnail());
+        };
+
         renderer.render(scene, camera);
-        const thumbnailCanvas = document.createElement("canvas");
-        thumbnailCanvas.width = 360;
-        thumbnailCanvas.height = 240;
-        const thumbnailContext = thumbnailCanvas.getContext("2d");
-        thumbnailContext?.drawImage(renderer.domElement, 0, 0, 360, 240);
-        const thumbnail = thumbnailContext
-          ? thumbnailCanvas.toDataURL("image/webp", 0.82)
-          : null;
         setState("ready");
-        onReady({ bboxMm, thumbnail, webglAvailable: true });
+        onReady({ bboxMm, thumbnail: captureThumbnail(), webglAvailable: true });
 
         cleanupPreview = () => {
+          paintRef.current = null;
           window.cancelAnimationFrame(frame);
           resizeObserver.disconnect();
           reducedMotion.removeEventListener("change", updateMotion);
@@ -234,6 +321,34 @@ export default function ModelPreview({
       cleanupPreview();
     };
   }, [file, onError, onReady]);
+
+  /* Colour choices and part assignments both land here. The scene is already
+     built, so this only pushes colours onto existing materials. */
+  useEffect(() => {
+    paintRef.current?.(assignment);
+  }, [assignment, colors, parts]);
+
+  function assignPart(partId: string, colorIndex: number) {
+    setAssignment((current) => ({ ...current, [partId]: colorIndex }));
+  }
+
+  function onSwatchKeyDown(
+    event: KeyboardEvent<HTMLDivElement>,
+    partId: string,
+    currentIndex: number,
+  ) {
+    if (colors.length < 2) return;
+    const offset = event.key === "ArrowRight" || event.key === "ArrowDown"
+      ? 1
+      : event.key === "ArrowLeft" || event.key === "ArrowUp"
+        ? -1
+        : 0;
+    if (!offset) return;
+    event.preventDefault();
+    const next = (currentIndex + offset + colors.length) % colors.length;
+    assignPart(partId, next);
+    (event.currentTarget.querySelectorAll("button")[next] as HTMLButtonElement | undefined)?.focus();
+  }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (state !== "ready") return;
@@ -276,10 +391,87 @@ export default function ModelPreview({
         )}
       </div>
 
+
+      {/* Colour assignment. Only appears once the preview is live and at least
+          one filament is chosen — it is a consequence of the colour step, not
+          a control that sits there empty asking to be filled in. */}
+      {(state === "ready" || state === "fallback") && colors.length > 0 && (
+        <div className="border-t-2 border-ink/10 bg-cloud/60 p-4">
+          {colors.length === 1 || parts.length <= 1 ? (
+            <p className="text-sm text-slate">
+              Previewing in{" "}
+              <span className="font-display font-bold text-ink">
+                {colors[assignment[parts[0]?.id ?? ""] ?? 0]?.name ?? colors[0].name}
+              </span>
+              {colors.length > 1 && parts.length <= 1
+                ? " — this model is one part, so it prints in a single colour."
+                : "."}
+            </p>
+          ) : parts.length > MAX_ASSIGNABLE_PARTS ? (
+            <p className="text-sm text-slate">
+              This model has {parts.length} parts — too many to assign one by
+              one, so the preview cycles through your {colors.length} colours in
+              order. Tell the club in the notes if specific parts need specific
+              colours.
+            </p>
+          ) : (
+            <>
+              <p className="font-display text-sm font-bold text-ink">
+                Which colour goes where
+              </p>
+              <ul className="mt-3 grid gap-2">
+                {parts.map((part, index) => {
+                  const current = (assignment[part.id] ?? index % colors.length) % colors.length;
+                  return (
+                    <li
+                      key={part.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border-2 border-ink/10 bg-white px-3 py-2"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                        {part.name}
+                      </span>
+                      <div
+                        role="radiogroup"
+                        aria-label={`Colour for ${part.name}`}
+                        onKeyDown={(event) => onSwatchKeyDown(event, part.id, current)}
+                        className="flex shrink-0 gap-1.5"
+                      >
+                        {colors.map((color, colorIndex) => {
+                          const checked = colorIndex === current;
+                          return (
+                            <button
+                              key={color.slug}
+                              type="button"
+                              role="radio"
+                              aria-checked={checked}
+                              tabIndex={checked ? 0 : -1}
+                              onClick={() => assignPart(part.id, colorIndex)}
+                              className={`part-swatch${checked ? " is-current" : ""}`}
+                              style={{ background: color.swatch ?? color.hex }}
+                            >
+                              <span className="sr-only">
+                                {color.name}, colour {colorIndex + 1}
+                              </span>
+                              <span aria-hidden="true" className="part-swatch__index">
+                                {colorIndex + 1}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="border-t border-mist bg-white p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <p className="truncate font-display text-sm font-bold text-ink">{file.name}</p>
-          <p className="mt-1 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-slate">
+          <p className="mt-1 text-sm text-slate">
             {dimensionsText}
           </p>
           {state === "fallback" && (
@@ -294,7 +486,7 @@ export default function ModelPreview({
             <button
               type="button"
               onClick={() => rotateRef.current(-15)}
-              className="grid size-11 cursor-pointer place-items-center rounded-full border border-navy/35 bg-white font-mono text-navy hover:bg-cloud"
+              className="grid size-11 cursor-pointer place-items-center rounded-[var(--radius-chip)] border-2 border-ink/25 bg-white text-ink hover:bg-cloud"
               aria-label="Rotate model left 15 degrees"
             >
               ←
@@ -302,14 +494,14 @@ export default function ModelPreview({
             <button
               type="button"
               onClick={() => resetRef.current()}
-              className="min-h-11 cursor-pointer rounded-full border border-navy/35 bg-white px-4 font-display text-sm font-bold text-navy hover:bg-cloud"
+              className="min-h-11 cursor-pointer rounded-[var(--radius-chip)] border-2 border-ink/25 bg-white px-4 font-display text-sm font-bold text-ink hover:bg-cloud"
             >
               Front
             </button>
             <button
               type="button"
               onClick={() => rotateRef.current(15)}
-              className="grid size-11 cursor-pointer place-items-center rounded-full border border-navy/35 bg-white font-mono text-navy hover:bg-cloud"
+              className="grid size-11 cursor-pointer place-items-center rounded-[var(--radius-chip)] border-2 border-ink/25 bg-white text-ink hover:bg-cloud"
               aria-label="Rotate model right 15 degrees"
             >
               →

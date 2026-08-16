@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   clientIp,
   genericError,
+  logRequestFailure,
   readJsonBody,
   requireJsonRequest,
   requireSameOrigin,
@@ -82,26 +83,41 @@ export async function POST(request: Request) {
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    const cause = { route: "uploads/complete", error };
     if (error instanceof CompletionInProgressError) {
-      const response = genericError(409);
+      const response = genericError(409, cause);
       response.headers.set("Retry-After", String(error.retryAfterSeconds));
+      return response;
+    }
+    // A model this endpoint cannot read back is the one failure the requester
+    // can actually act on, and the generic wording sent them nowhere. Naming it
+    // reveals no more than the checks the browser already runs before upload.
+    if (error instanceof StorageVerificationError) {
+      logRequestFailure(cause.route, 400, error);
+      const response = Response.json(
+        {
+          error:
+            "This model file could not be verified after upload. Re-export it as STL or 3MF and try again, or send the model link instead.",
+        },
+        { status: 400 },
+      );
+      response.headers.set("Cache-Control", "no-store");
       return response;
     }
     if (
       error instanceof z.ZodError ||
       error instanceof UnsafeRequestError ||
-      error instanceof InvalidTokenError ||
-      error instanceof StorageVerificationError
+      error instanceof InvalidTokenError
     ) {
-      return genericError(400);
+      return genericError(400, cause);
     }
     if (
       error instanceof StorageConfigurationError ||
       error instanceof TokenConfigurationError ||
       error instanceof RateLimitConfigurationError
     ) {
-      return genericError(503);
+      return genericError(503, cause);
     }
-    return genericError(503);
+    return genericError(503, cause);
   }
 }

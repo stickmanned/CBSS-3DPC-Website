@@ -28,3 +28,10 @@ export type VerifiedUpload = {
 
 export type RequestFieldErrors = Record<string, string[]>;
 
+
+/** One paintable region of an uploaded model: a mesh, or a material slot
+    within a mesh when a 3MF assigns several colours to one object. */
+export type ModelPart = {
+  id: string;
+  name: string;
+};

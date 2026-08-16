@@ -45,6 +45,13 @@ type ZipInput = {
   method?: 0 | 8;
 };
 
+/**
+ * Real exporters (Fusion 360, Bambu Studio, PrusaSlicer, Orca) write ZIP64
+ * records into every 3MF regardless of size, so the sentinel form below is
+ * the common case rather than an exotic one.
+ */
+type ZipOptions = { zip64?: boolean };
+
 type ZipRecord = {
   localOffset: number;
   centralOffset: number;
@@ -82,7 +89,8 @@ function bytes(input: string | Uint8Array): Buffer {
   return typeof input === "string" ? Buffer.from(input, "utf8") : Buffer.from(input);
 }
 
-function makeZip(inputs: ZipInput[]): TestZip {
+function makeZip(inputs: ZipInput[], options: ZipOptions = {}): TestZip {
+  const zip64 = options.zip64 ?? false;
   const locals: Buffer[] = [];
   const centralParts: Buffer[] = [];
   const records: ZipRecord[] = [];
@@ -94,33 +102,56 @@ function makeZip(inputs: ZipInput[]): TestZip {
     const method = input.method ?? 8;
     const compressed = method === 8 ? deflateRawSync(payload) : payload;
     const crc = crc32(payload);
-    const version = method === 8 ? 20 : 10;
+    const version = zip64 ? 45 : method === 8 ? 20 : 10;
     const flags = 0x0800;
 
-    const local = Buffer.alloc(30 + name.length);
+    // ZIP64 replaces each oversized field with a 0xffffffff sentinel and
+    // carries the real value in the 0x0001 extra field, in spec order.
+    const localExtra = zip64 ? Buffer.alloc(20) : Buffer.alloc(0);
+    if (zip64) {
+      localExtra.writeUInt16LE(0x0001, 0);
+      localExtra.writeUInt16LE(16, 2);
+      localExtra.writeBigUInt64LE(BigInt(payload.length), 4);
+      localExtra.writeBigUInt64LE(BigInt(compressed.length), 12);
+    }
+
+    const local = Buffer.alloc(30 + name.length + localExtra.length);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(version, 4);
     local.writeUInt16LE(flags, 6);
     local.writeUInt16LE(method, 8);
     local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(compressed.length, 18);
-    local.writeUInt32LE(payload.length, 22);
+    local.writeUInt32LE(zip64 ? 0xffffffff : compressed.length, 18);
+    local.writeUInt32LE(zip64 ? 0xffffffff : payload.length, 22);
     local.writeUInt16LE(name.length, 26);
+    local.writeUInt16LE(localExtra.length, 28);
     name.copy(local, 30);
+    localExtra.copy(local, 30 + name.length);
     locals.push(local, compressed);
 
-    const central = Buffer.alloc(46 + name.length);
+    const centralExtra = zip64 ? Buffer.alloc(28) : Buffer.alloc(0);
+    if (zip64) {
+      centralExtra.writeUInt16LE(0x0001, 0);
+      centralExtra.writeUInt16LE(24, 2);
+      centralExtra.writeBigUInt64LE(BigInt(payload.length), 4);
+      centralExtra.writeBigUInt64LE(BigInt(compressed.length), 12);
+      centralExtra.writeBigUInt64LE(BigInt(localOffset), 20);
+    }
+
+    const central = Buffer.alloc(46 + name.length + centralExtra.length);
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(version, 6);
     central.writeUInt16LE(flags, 8);
     central.writeUInt16LE(method, 10);
     central.writeUInt32LE(crc, 16);
-    central.writeUInt32LE(compressed.length, 20);
-    central.writeUInt32LE(payload.length, 24);
+    central.writeUInt32LE(zip64 ? 0xffffffff : compressed.length, 20);
+    central.writeUInt32LE(zip64 ? 0xffffffff : payload.length, 24);
     central.writeUInt16LE(name.length, 28);
-    central.writeUInt32LE(localOffset, 42);
+    central.writeUInt16LE(centralExtra.length, 30);
+    central.writeUInt32LE(zip64 ? 0xffffffff : localOffset, 42);
     name.copy(central, 46);
+    centralExtra.copy(central, 46 + name.length);
     centralParts.push(central);
 
     records.push({
@@ -140,26 +171,48 @@ function makeZip(inputs: ZipInput[]): TestZip {
   });
   const centralSize = centralCursor - centralOffset;
 
+  const zip64Parts: Buffer[] = [];
+  if (zip64) {
+    const record = Buffer.alloc(56);
+    record.writeUInt32LE(0x06064b50, 0);
+    record.writeBigUInt64LE(BigInt(44), 4);
+    record.writeUInt16LE(45, 12);
+    record.writeUInt16LE(45, 14);
+    record.writeBigUInt64LE(BigInt(inputs.length), 24);
+    record.writeBigUInt64LE(BigInt(inputs.length), 32);
+    record.writeBigUInt64LE(BigInt(centralSize), 40);
+    record.writeBigUInt64LE(BigInt(centralOffset), 48);
+
+    const locator = Buffer.alloc(20);
+    locator.writeUInt32LE(0x07064b50, 0);
+    locator.writeBigUInt64LE(BigInt(centralCursor), 8);
+    locator.writeUInt32LE(1, 16);
+    zip64Parts.push(record, locator);
+  }
+
   const eocd = Buffer.alloc(22);
   eocd.writeUInt32LE(0x06054b50, 0);
-  eocd.writeUInt16LE(inputs.length, 8);
-  eocd.writeUInt16LE(inputs.length, 10);
-  eocd.writeUInt32LE(centralSize, 12);
-  eocd.writeUInt32LE(centralOffset, 16);
+  eocd.writeUInt16LE(zip64 ? 0xffff : inputs.length, 8);
+  eocd.writeUInt16LE(zip64 ? 0xffff : inputs.length, 10);
+  eocd.writeUInt32LE(zip64 ? 0xffffffff : centralSize, 12);
+  eocd.writeUInt32LE(zip64 ? 0xffffffff : centralOffset, 16);
 
   return {
-    bytes: Buffer.concat([...locals, ...centralParts, eocd]),
+    bytes: Buffer.concat([...locals, ...centralParts, ...zip64Parts, eocd]),
     centralOffset,
     records,
   };
 }
 
-function minimal3mf(extra: ZipInput[] = []): TestZip {
-  return makeZip([
-    { name: "[Content_Types].xml", data: CONTENT_TYPES },
-    { name: "3D/3dmodel.model", data: MODEL },
-    ...extra,
-  ]);
+function minimal3mf(extra: ZipInput[] = [], options: ZipOptions = {}): TestZip {
+  return makeZip(
+    [
+      { name: "[Content_Types].xml", data: CONTENT_TYPES },
+      { name: "3D/3dmodel.model", data: MODEL },
+      ...extra,
+    ],
+    options,
+  );
 }
 
 function binaryStl(
@@ -317,7 +370,7 @@ describe("model structure validation", () => {
     await expect3mfRejected(zip);
   });
 
-  it("rejects data descriptors, encryption, and ZIP64 metadata", async () => {
+  it("rejects data descriptors and encryption", async () => {
     const descriptor = minimal3mf();
     descriptor.bytes.writeUInt16LE(0x0808, descriptor.records[0]!.localOffset + 6);
     descriptor.bytes.writeUInt16LE(0x0808, descriptor.records[0]!.centralOffset + 8);
@@ -327,9 +380,59 @@ describe("model structure validation", () => {
     encrypted.bytes.writeUInt16LE(0x0801, encrypted.records[0]!.localOffset + 6);
     encrypted.bytes.writeUInt16LE(0x0801, encrypted.records[0]!.centralOffset + 8);
     await expect3mfRejected(encrypted);
+  });
 
-    const zip64 = minimal3mf();
-    zip64.bytes.writeUInt32LE(0xffffffff, zip64.records[0]!.centralOffset + 24);
-    await expect3mfRejected(zip64);
+  it("accepts a ZIP64 3MF, the shape real exporters emit at any size", async () => {
+    objectState.bytes = minimal3mf([], { zip64: true }).bytes;
+    await expect(
+      assertSafeModelStructure(
+        "uploads/temp/test.3mf",
+        "3mf",
+        objectState.bytes.length,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("accepts a ZIP64 3MF carrying the parts a slicer adds", async () => {
+    objectState.bytes = minimal3mf(
+      [
+        { name: "_rels/.rels", data: "<Relationships/>" },
+        { name: "Metadata/thumbnail.png", data: "thumbnail-bytes" },
+      ],
+      { zip64: true },
+    ).bytes;
+    await expect(
+      assertSafeModelStructure(
+        "uploads/temp/test.3mf",
+        "3mf",
+        objectState.bytes.length,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects a ZIP64 sentinel with no extra field to resolve it", async () => {
+    const zip = minimal3mf();
+    zip.bytes.writeUInt32LE(0xffffffff, zip.records[0]!.centralOffset + 24);
+    await expect3mfRejected(zip);
+  });
+
+  it("rejects a ZIP64 extra whose sizes contradict the local header", async () => {
+    const zip = minimal3mf([], { zip64: true });
+    const record = zip.records[0]!;
+    // The central extra claims a different compressed size than the local one.
+    const nameLength = zip.bytes.readUInt16LE(record.centralOffset + 28);
+    const extraStart = record.centralOffset + 46 + nameLength;
+    zip.bytes.writeBigUInt64LE(
+      BigInt(record.compressedSize + 1),
+      extraStart + 12,
+    );
+    await expect3mfRejected(zip);
+  });
+
+  it("rejects a ZIP64 central directory offset that does not meet the record", async () => {
+    const zip = minimal3mf([], { zip64: true });
+    const locatorOffset = zip.bytes.length - 22 - 20;
+    zip.bytes.writeBigUInt64LE(BigInt(zip.centralOffset), locatorOffset + 8);
+    await expect3mfRejected(zip);
   });
 });

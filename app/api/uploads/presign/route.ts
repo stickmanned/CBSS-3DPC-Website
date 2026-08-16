@@ -71,13 +71,14 @@ export async function POST(request: Request) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
+    const cause = { route: "uploads/presign", error };
     if (
       error instanceof z.ZodError ||
       error instanceof UnsafeRequestError ||
       error instanceof UploadPolicyError ||
       error instanceof TurnstileVerificationError
     ) {
-      return genericError(400);
+      return genericError(400, cause);
     }
     if (
       error instanceof StorageConfigurationError ||
@@ -85,8 +86,8 @@ export async function POST(request: Request) {
       error instanceof TurnstileConfigurationError ||
       error instanceof RateLimitConfigurationError
     ) {
-      return genericError(503);
+      return genericError(503, cause);
     }
-    return genericError(503);
+    return genericError(503, cause);
   }
 }

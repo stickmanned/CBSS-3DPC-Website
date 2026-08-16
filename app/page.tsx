@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import Button from "./components/Button";
-import FilamentWall from "./components/FilamentWall";
+import CyclingWord from "./components/CyclingWord";
+import SpoolPicker from "./components/SpoolPicker";
 import HeroRail from "./components/HeroRail";
 import LayerStage from "./components/LayerStage";
 import ScrollReveal from "./components/ScrollReveal";
@@ -63,8 +64,7 @@ export default function Home() {
               {club.school} · {club.district}
             </p>
             <h1 className="mx-auto mt-6 max-w-[15ch] text-[clamp(2.75rem,6.5vw,4.75rem)]">
-              Come make something{" "}
-              <span className="rainbow-text">Tuesday</span>.
+              Come make something <CyclingWord />
             </h1>
             <p className="mx-auto mt-6 max-w-[46ch] text-lg leading-relaxed text-white/70">
               CBSS 3D printing club is a community where students design, model,
@@ -208,7 +208,7 @@ export default function Home() {
 
           {/* Real inventory, doing the work photography can't do yet */}
           <ScrollReveal className="tile tile--w4" delay={1}>
-            <FilamentWall />
+            <SpoolPicker />
           </ScrollReveal>
         </div>
       </div>
