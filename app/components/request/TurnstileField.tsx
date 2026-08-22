@@ -1,7 +1,9 @@
 "use client";
 
 import Script from "next/script";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { club } from "@/app/lib/content";
+import { describeWidgetError } from "@/app/lib/security/turnstile-errors";
 
 type TurnstileRenderOptions = {
   sitekey: string;
@@ -9,7 +11,7 @@ type TurnstileRenderOptions = {
   theme: "light";
   callback: (token: string) => void;
   "expired-callback": () => void;
-  "error-callback": () => void;
+  "error-callback": (code?: string) => void;
   "response-field": boolean;
 };
 
@@ -18,6 +20,7 @@ declare global {
     turnstile?: {
       render?: (container: HTMLElement, options: TurnstileRenderOptions) => string;
       remove?: (widgetId: string) => void;
+      reset?: (widgetId: string) => void;
       ready?: (callback: () => void) => void;
     };
     // Cloudflare invokes this by name once the API is genuinely usable.
@@ -48,6 +51,7 @@ export default function TurnstileField({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef("");
+  const [widgetError, setWidgetError] = useState("");
   // onTokenChange identity can change between renders; keep the widget's
   // callbacks pointing at the current one without re-rendering the widget.
   const onTokenChangeRef = useRef(onTokenChange);
@@ -66,9 +70,15 @@ export default function TurnstileField({
       sitekey: siteKey,
       action: "print-request",
       theme: "light",
-      callback: (value) => onTokenChangeRef.current(value),
+      callback: (value) => {
+        setWidgetError("");
+        onTokenChangeRef.current(value);
+      },
       "expired-callback": () => onTokenChangeRef.current(""),
-      "error-callback": () => onTokenChangeRef.current(""),
+      "error-callback": (code) => {
+        onTokenChangeRef.current("");
+        setWidgetError(code ?? "unknown");
+      },
       "response-field": false,
     });
     return true;
@@ -93,6 +103,18 @@ export default function TurnstileField({
     };
   }, [renderWidget]);
 
+  const retry = useCallback(() => {
+    setWidgetError("");
+    onTokenChangeRef.current("");
+    if (widgetIdRef.current) {
+      window.turnstile?.reset?.(widgetIdRef.current);
+      return;
+    }
+    renderWidget();
+  }, [renderWidget]);
+
+  const failure = widgetError ? describeWidgetError(widgetError) : null;
+
   return (
     <div id={CONTAINER_ID} className="rounded-xl border border-mist bg-cloud p-4">
       <Script
@@ -107,7 +129,30 @@ export default function TurnstileField({
           {error}
         </p>
       )}
-      {!token && !error && (
+      {failure && (
+        <div className="mt-3 text-sm" role="alert">
+          <p className="font-semibold text-[#9b3028]">{failure.message}</p>
+          <p className="mt-2 text-slate">
+            {failure.retryable && (
+              <button
+                type="button"
+                onClick={retry}
+                className="font-semibold text-navy underline underline-offset-4"
+              >
+                Try the check again
+              </button>
+            )}
+            {failure.retryable && " · "}
+            <a
+              className="font-semibold text-navy underline underline-offset-4"
+              href={`mailto:${club.contactEmail}?subject=${encodeURIComponent("Print request form - security check error")}&body=${encodeURIComponent(`The security check on the request form failed with code ${widgetError}.`)}`}
+            >
+              Email the club
+            </a>
+          </p>
+        </div>
+      )}
+      {!token && !error && !failure && (
         <p className="mt-2 text-sm text-slate" role="status">
           Complete the check before uploading or sending your request.
         </p>

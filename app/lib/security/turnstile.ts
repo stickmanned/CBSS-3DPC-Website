@@ -4,6 +4,10 @@ const turnstileResponseSchema = z.object({
   success: z.boolean(),
   hostname: z.string().optional(),
   action: z.string().optional(),
+  // Cloudflare returns the actual cause here. Dropping it left every failure
+  // — expired token, wrong secret, unlisted hostname — looking identical in
+  // production, which is the one shape no bug report can act on.
+  "error-codes": z.array(z.string()).optional(),
 });
 
 export class TurnstileVerificationError extends Error {
@@ -53,17 +57,30 @@ export async function verifyTurnstile(
     );
     if (!response.ok) throw new Error("verification unavailable");
     result = turnstileResponseSchema.parse(await response.json());
-  } catch {
+  } catch (error) {
+    console.error(
+      "[turnstile] siteverify unreachable:",
+      error instanceof Error ? `${error.name}: ${error.message}` : error,
+    );
     throw new TurnstileVerificationError();
   }
 
   const expectedHostname = process.env.TURNSTILE_EXPECTED_HOSTNAME?.toLowerCase();
   const expectedAction = process.env.TURNSTILE_EXPECTED_ACTION ?? "print-request";
-  if (
-    !result.success ||
-    (expectedHostname && result.hostname?.toLowerCase() !== expectedHostname) ||
-    (expectedAction && result.action !== expectedAction)
-  ) {
+  const hostnameMismatch =
+    Boolean(expectedHostname) && result.hostname?.toLowerCase() !== expectedHostname;
+  const actionMismatch = Boolean(expectedAction) && result.action !== expectedAction;
+
+  if (!result.success || hostnameMismatch || actionMismatch) {
+    // Server-side only. The requester still sees one generic message, but a
+    // misconfigured TURNSTILE_EXPECTED_HOSTNAME and a genuinely failed
+    // challenge are no longer indistinguishable to whoever reads the logs.
+    console.error(
+      `[turnstile] rejected success=${result.success}` +
+        ` codes=[${result["error-codes"]?.join(",") ?? ""}]` +
+        ` hostname=${result.hostname ?? "?"}${hostnameMismatch ? ` (expected ${expectedHostname})` : ""}` +
+        ` action=${result.action ?? "?"}${actionMismatch ? ` (expected ${expectedAction})` : ""}`,
+    );
     throw new TurnstileVerificationError();
   }
 }
