@@ -1,4 +1,19 @@
 /**
+ * The single name for the challenge this site issues.
+ *
+ * Both halves import it: the widget stamps it into the token, the verifier
+ * checks for it. That is the only way the two can agree by construction. When
+ * the expected value lived in `TURNSTILE_EXPECTED_ACTION` and the issued one
+ * was a literal in the component, the env var could only ever be *wrong* —
+ * it had no way to be more correct than the string the widget already sends,
+ * and a single typo in it would have rejected every genuine token with the
+ * same unreadable "Request could not be processed." that a pinned APP_ORIGIN
+ * produced. Configuration may still name additional accepted actions; it can
+ * no longer contradict this one.
+ */
+export const TURNSTILE_ACTION = "print-request";
+
+/**
  * The one switch that takes Turnstile out of the request path.
  *
  * Turnstile is a hard gate: every route into the print request form, uploaded

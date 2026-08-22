@@ -37,46 +37,121 @@ describe("mutation request security", () => {
     expect(logged).not.toHaveBeenCalled();
   });
 
-  it("requires the canonical HTTPS origin in production and rejects forged hosts", () => {
+  function post(url: string, headers: Record<string, string>) {
+    return new Request(url, { method: "POST", headers });
+  }
+
+  // The production outage, pinned. APP_ORIGIN was left on the Vercel preview
+  // domain, so every submission from the real site was refused on the first
+  // line of the upload route and surfaced as "Request could not be processed."
+  // The domain the browser actually reached is now what decides.
+  it("accepts the domain the browser reached even when APP_ORIGIN names another", () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ORIGIN", "https://cbss-3dpc-website.vercel.app");
+
     expect(() =>
       requireSameOrigin(
-        new Request("https://forged.example/api/uploads/presign", {
-          method: "POST",
-          headers: { origin: "https://forged.example" },
+        post("https://3dprintingclub.org/api/uploads/presign", {
+          origin: "https://3dprintingclub.org",
+          "sec-fetch-site": "same-origin",
         }),
       ),
-    ).toThrow(UnsafeRequestError);
+    ).not.toThrow();
+  });
 
-    vi.stubEnv("APP_ORIGIN", "https://queue.example");
+  it("accepts every alias of the site, not just the one that was configured", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ORIGIN", "https://3dprintingclub.org");
+
+    for (const host of [
+      "https://www.3dprintingclub.org",
+      "https://cbss-3dpc-website.vercel.app",
+    ]) {
+      expect(() =>
+        requireSameOrigin(post(`${host}/api/uploads/presign`, { origin: host })),
+      ).not.toThrow();
+    }
+  });
+
+  it("still refuses a cross-site POST, which is the check that carries the weight", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ORIGIN", "https://3dprintingclub.org");
+
     expect(() =>
       requireSameOrigin(
-        new Request("https://forged.example/api/uploads/presign", {
-          method: "POST",
-          headers: { origin: "https://forged.example" },
+        post("https://3dprintingclub.org/api/uploads/presign", {
+          origin: "https://attacker.example",
         }),
       ),
     ).toThrow(UnsafeRequestError);
   });
 
-  it("requires an exact browser origin", () => {
-    const accepted = new Request("https://queue.example/api/uploads/presign", {
-      method: "POST",
-      headers: {
-        origin: "https://queue.example",
-        "sec-fetch-site": "same-origin",
-      },
-    });
-    expect(() => requireSameOrigin(accepted)).not.toThrow();
+  it("refuses a plaintext origin in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(() =>
+      requireSameOrigin(
+        post("http://3dprintingclub.org/api/uploads/presign", {
+          origin: "http://3dprintingclub.org",
+        }),
+      ),
+    ).toThrow(UnsafeRequestError);
+  });
 
-    const crossOrigin = new Request("https://queue.example/api/uploads/presign", {
-      method: "POST",
-      headers: {
-        origin: "https://attacker.example",
-        "sec-fetch-site": "cross-site",
-      },
-    });
-    expect(() => requireSameOrigin(crossOrigin)).toThrow(UnsafeRequestError);
+  it("leaves local development on http working", () => {
+    expect(() =>
+      requireSameOrigin(
+        post("http://localhost:3000/api/uploads/presign", {
+          origin: "http://localhost:3000",
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("requires an Origin header at all", () => {
+    expect(() =>
+      requireSameOrigin(post("https://3dprintingclub.org/api/uploads/presign", {})),
+    ).toThrow(UnsafeRequestError);
+  });
+
+  // A typo in configuration is a warning, never an outage.
+  it("survives an unusable APP_ORIGIN instead of failing the request", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("APP_ORIGIN", "not a url");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(() =>
+      requireSameOrigin(
+        post("https://3dprintingclub.org/api/uploads/presign", {
+          origin: "https://3dprintingclub.org",
+        }),
+      ),
+    ).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("not a url"));
+  });
+
+  it("names an unlisted origin in the log without refusing it", () => {
+    vi.stubEnv("APP_ORIGIN", "https://3dprintingclub.org");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    requireSameOrigin(
+      post("https://staging.3dprintingclub.org/api/uploads/presign", {
+        origin: "https://staging.3dprintingclub.org",
+      }),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("https://staging.3dprintingclub.org"),
+    );
+  });
+
+  it("refuses a request the browser itself labels cross-site", () => {
+    expect(() =>
+      requireSameOrigin(
+        post("https://3dprintingclub.org/api/uploads/presign", {
+          origin: "https://3dprintingclub.org",
+          "sec-fetch-site": "cross-site",
+        }),
+      ),
+    ).toThrow(UnsafeRequestError);
   });
 
   it("rejects a JSON body beyond the endpoint limit", async () => {

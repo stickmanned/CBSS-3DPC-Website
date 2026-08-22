@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { club } from "@/app/lib/content";
 import EmailLink from "@/app/components/EmailLink";
 import { describeWidgetError } from "@/app/lib/security/turnstile-errors";
+import { TURNSTILE_ACTION } from "@/app/lib/security/turnstile-config";
 
 type TurnstileRenderOptions = {
   sitekey: string;
@@ -69,7 +70,7 @@ export default function TurnstileField({
 
     widgetIdRef.current = window.turnstile.render(container, {
       sitekey: siteKey,
-      action: "print-request",
+      action: TURNSTILE_ACTION,
       theme: "light",
       callback: (value) => {
         setWidgetError("");

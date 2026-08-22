@@ -145,3 +145,52 @@ describe("verifyTurnstile hostname binding", () => {
     ).rejects.toBeInstanceOf(TurnstileVerificationError);
   });
 });
+
+describe("verifyTurnstile action binding", () => {
+  // Same failure shape as the pinned hostname and the pinned origin: a single
+  // env value that could only ever contradict the literal the widget stamps.
+  // The widget and the verifier now import one constant, so the only way to
+  // disagree is deliberate.
+  it("accepts the action the widget stamps even when config names another", async () => {
+    withKeys();
+    vi.stubEnv("TURNSTILE_EXPECTED_ACTION", "some-stale-action");
+    siteverifyReturns({ hostname: "3dprintingclub.org", action: "print-request" });
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("treats a configured action as an addition, not a replacement", async () => {
+    withKeys();
+    vi.stubEnv("TURNSTILE_EXPECTED_ACTION", "newsletter-signup");
+    siteverifyReturns({ hostname: "3dprintingclub.org", action: "newsletter-signup" });
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("still rejects a token minted for something else entirely", async () => {
+    withKeys();
+    vi.stubEnv("TURNSTILE_EXPECTED_ACTION", "");
+    siteverifyReturns({ hostname: "3dprintingclub.org", action: "login" });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).rejects.toBeInstanceOf(TurnstileVerificationError);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("action=login"));
+  });
+
+  it("rejects a response carrying no action at all", async () => {
+    withKeys();
+    vi.stubEnv("TURNSTILE_EXPECTED_ACTION", "");
+    siteverifyReturns({ hostname: "3dprintingclub.org", action: undefined });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).rejects.toBeInstanceOf(TurnstileVerificationError);
+  });
+});

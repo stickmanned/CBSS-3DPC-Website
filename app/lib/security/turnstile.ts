@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { turnstileDisabled } from "./turnstile-config";
+import { TURNSTILE_ACTION, turnstileDisabled } from "./turnstile-config";
 
 const turnstileResponseSchema = z.object({
   success: z.boolean(),
@@ -53,6 +53,23 @@ function allowedHostnames(requestHostname?: string): string[] {
     .filter(Boolean);
   const own = normalizeHostname(requestHostname);
   return own ? [own, ...configured] : configured;
+}
+
+/**
+ * Which actions may have minted the token.
+ *
+ * The action the widget actually stamps is always accepted, for the same
+ * reason the request's own hostname is: it is the value this site issues, so
+ * it cannot be stale and cannot be typo'd apart from its counterpart.
+ * `TURNSTILE_EXPECTED_ACTION` still widens the set for a second form or a
+ * rename in flight; it can no longer narrow it to nothing.
+ */
+function allowedActions(): string[] {
+  const configured = (process.env.TURNSTILE_EXPECTED_ACTION ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [TURNSTILE_ACTION, ...configured];
 }
 
 export async function verifyTurnstile(
@@ -110,10 +127,10 @@ export async function verifyTurnstile(
   }
 
   const allowed = allowedHostnames(requestHostname);
-  const expectedAction = process.env.TURNSTILE_EXPECTED_ACTION ?? "print-request";
+  const actions = allowedActions();
   const hostnameMismatch =
     allowed.length > 0 && !allowed.includes(normalizeHostname(result.hostname));
-  const actionMismatch = Boolean(expectedAction) && result.action !== expectedAction;
+  const actionMismatch = !actions.includes(result.action ?? "");
 
   if (!result.success || hostnameMismatch || actionMismatch) {
     // Server-side only. The requester still sees one generic message, but a
@@ -123,7 +140,7 @@ export async function verifyTurnstile(
       `[turnstile] rejected success=${result.success}` +
         ` codes=[${result["error-codes"]?.join(",") ?? ""}]` +
         ` hostname=${result.hostname ?? "?"}${hostnameMismatch ? ` (allowed ${allowed.join("|")})` : ""}` +
-        ` action=${result.action ?? "?"}${actionMismatch ? ` (expected ${expectedAction})` : ""}`,
+        ` action=${result.action ?? "?"}${actionMismatch ? ` (allowed ${actions.join("|")})` : ""}`,
     );
     throw new TurnstileVerificationError();
   }

@@ -14,57 +14,98 @@ export class UnsafeRequestError extends Error {
   }
 }
 
-function configuredOrigin(): string | null {
-  const raw = process.env.APP_ORIGIN ?? process.env.NEXT_PUBLIC_SITE_URL;
-  if (!raw) {
-    if (process.env.NODE_ENV === "production") {
-      throw new UnsafeRequestError("app-origin-not-configured");
+/**
+ * Origins this app also answers to, beyond the one it was reached on.
+ *
+ * Comma-separated, and entirely optional. A value here can only ever *widen*
+ * what is recognised: it is read for logging and for deliberate multi-origin
+ * setups, and an unusable entry is dropped with a warning instead of thrown.
+ * Nothing on the request path depends on it being correct — which is the whole
+ * point, and is explained in `requireSameOrigin`.
+ */
+function configuredOrigins(): string[] {
+  const raw = process.env.APP_ORIGIN ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const origins: string[] = [];
+
+  for (const entry of raw.split(",")) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    try {
+      const url = new URL(trimmed);
+      if (url.username || url.password) throw new Error("credentials in origin");
+      origins.push(url.origin);
+    } catch {
+      console.warn(`[request-security] ignoring unusable configured origin: ${trimmed}`);
     }
-    return null;
   }
 
-  try {
-    const url = new URL(raw);
-    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    if (
-      url.username ||
-      url.password ||
-      (url.protocol !== "https:" && !(local && process.env.NODE_ENV !== "production"))
-    ) {
-      throw new UnsafeRequestError(`app-origin-unusable value=${url.origin}`);
-    }
-    return url.origin;
-  } catch (error) {
-    if (error instanceof UnsafeRequestError) throw error;
-    throw new UnsafeRequestError("app-origin-unparsable");
-  }
+  return origins;
 }
 
+/**
+ * Refuses any request the browser did not make from this exact site.
+ *
+ * The guarantee is `Origin` equals the origin actually reached, and on its own
+ * that is the whole of the CSRF defence. A page on another site can make a
+ * visitor's browser POST here, but it cannot make that browser lie about
+ * `Origin`; the two disagree and the request dies. It needs no configuration,
+ * and that turns out to matter more than it sounds.
+ *
+ * A comparison against a single pinned `APP_ORIGIN` used to sit beside it. It
+ * bought nothing: matching a forged `Host` to a forged `Origin` means sending
+ * the request yourself, which is not CSRF and gains an attacker nothing they
+ * could not get by calling the endpoint directly — and a Host not assigned to
+ * the project never reaches this code on Vercel anyway. What it did do was
+ * take the live site down. Pinned to the preview domain, it refused every
+ * request from the real one on the first line of the upload route; requesters
+ * saw "Request could not be processed." and the Turnstile logs showed nothing
+ * at all, because execution never got that far. A check that can only subtract
+ * is a check that can only fail closed on the domain people actually use, so
+ * it no longer decides this.
+ */
 export function requireSameOrigin(request: Request): void {
   const origin = request.headers.get("origin");
   if (!origin) throw new UnsafeRequestError("missing-origin-header");
 
   let suppliedOrigin: string;
-  let requestOrigin: string;
+  let requestUrl: URL;
   try {
     suppliedOrigin = new URL(origin).origin;
-    requestOrigin = new URL(request.url).origin;
+    requestUrl = new URL(request.url);
   } catch {
     throw new UnsafeRequestError("unparsable-origin");
   }
 
-  const expected = configuredOrigin() ?? requestOrigin;
-  if (suppliedOrigin !== expected || suppliedOrigin !== requestOrigin) {
-    // Origins are not secrets and naming all three is the only way to tell a
-    // misconfigured APP_ORIGIN apart from a proxy rewriting the request URL.
+  if (suppliedOrigin !== requestUrl.origin) {
+    // Origins are not secrets, and naming both is the only way to tell a
+    // cross-site POST apart from a proxy rewriting the request URL.
     throw new UnsafeRequestError(
-      `origin-mismatch browser=${suppliedOrigin} configured=${expected} request-url=${requestOrigin}`,
+      `origin-mismatch browser=${suppliedOrigin} request-url=${requestUrl.origin}`,
     );
+  }
+
+  const loopback =
+    requestUrl.hostname === "localhost" || requestUrl.hostname === "127.0.0.1";
+  if (
+    requestUrl.protocol !== "https:" &&
+    !(loopback && process.env.NODE_ENV !== "production")
+  ) {
+    throw new UnsafeRequestError(`insecure-origin ${requestUrl.origin}`);
   }
 
   const fetchSite = request.headers.get("sec-fetch-site");
   if (fetchSite && fetchSite !== "same-origin") {
     throw new UnsafeRequestError(`cross-site-fetch sec-fetch-site=${fetchSite}`);
+  }
+
+  // Deliberately not a gate. An unlisted origin is worth an operator noticing
+  // and is never worth refusing a legitimate request over.
+  const configured = configuredOrigins();
+  if (configured.length > 0 && !configured.includes(requestUrl.origin)) {
+    console.warn(
+      `[request-security] serving ${requestUrl.origin}, absent from APP_ORIGIN` +
+        ` (${configured.join("|")}); accepted on same-origin proof`,
+    );
   }
 }
 
