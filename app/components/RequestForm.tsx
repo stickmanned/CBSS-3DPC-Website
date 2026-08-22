@@ -10,6 +10,7 @@ import ColorPicker, {
 import MaterialSelector from "./request/MaterialSelector";
 import ModelFileUpload, { type ModelFileUploadHandle } from "./request/ModelFileUpload";
 import TurnstileField from "./request/TurnstileField";
+import { turnstileDisabled } from "@/app/lib/security/turnstile-config";
 import {
   firstErrorId,
   getQuantityNote,
@@ -133,7 +134,13 @@ export default function RequestForm() {
   const quantityNote = getQuantityNote(quantity);
   const modelSource = recognizeModelSource(modelUrl);
   const validModelUrl = Boolean(parseHttpsUrl(modelUrl));
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+  // Blank when disabled, so the widget is not rendered and the client-side
+  // "complete the security check" gate stands down with it. The server makes
+  // the same call from the same switch; a half-applied one is what turned a
+  // recoverable outage into a 503 on every submission.
+  const turnstileSiteKey = turnstileDisabled()
+    ? ""
+    : (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "");
 
   const getFormStartedAt = useCallback(() => {
     if (!formStartedAtRef.current) formStartedAtRef.current = Date.now();

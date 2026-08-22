@@ -1,3 +1,4 @@
+import EmailLink from "./components/EmailLink";
 import Image from "next/image";
 import Link from "next/link";
 import Button from "./components/Button";
@@ -150,12 +151,10 @@ export default function Home() {
           <div className="mt-4">
             {/* The address gets its own line: inline, it broke mid-address
                 ("080-" / "wwen@sd43.bc.ca") in the first screen. */}
-            <a
-              href={`mailto:${club.contactEmail}`}
+            <EmailLink
+              address={club.contactEmail}
               className="block w-fit font-bold text-signal underline underline-offset-4"
-            >
-              {club.contactEmail}
-            </a>
+            />
             <p className="mt-2 text-white/75">
               Email us with your name and school email to get added to our
               Teams.

@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { club } from "@/app/lib/content";
+import EmailLink from "@/app/components/EmailLink";
 import { describeWidgetError } from "@/app/lib/security/turnstile-errors";
 
 type TurnstileRenderOptions = {
@@ -143,12 +144,14 @@ export default function TurnstileField({
               </button>
             )}
             {failure.retryable && " · "}
-            <a
+            <EmailLink
+              address={club.contactEmail}
+              subject="Print request form - security check error"
+              body={`The security check on the request form failed with code ${widgetError}.`}
               className="font-semibold text-navy underline underline-offset-4"
-              href={`mailto:${club.contactEmail}?subject=${encodeURIComponent("Print request form - security check error")}&body=${encodeURIComponent(`The security check on the request form failed with code ${widgetError}.`)}`}
             >
               Email the club
-            </a>
+            </EmailLink>
           </p>
         </div>
       )}

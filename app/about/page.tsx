@@ -1,3 +1,4 @@
+import EmailLink from "@/app/components/EmailLink";
 import type { Metadata } from "next";
 import Button from "../components/Button";
 import PageIntro from "../components/PageIntro";
@@ -91,12 +92,10 @@ export default function About() {
                   </dt>
                   <dd className="mt-1.5 text-white/85">
                     Email{" "}
-                    <a
-                      href={`mailto:${club.contactEmail}`}
+                    <EmailLink
+                      address={club.contactEmail}
                       className="break-all font-bold text-signal underline underline-offset-4"
-                    >
-                      {club.contactEmail}
-                    </a>{" "}
+                    />{" "}
                     with your name and student email to get added to our Teams.
                   </dd>
                 </div>
@@ -119,18 +118,18 @@ export default function About() {
               Club contacts
             </span>
             <div className="mt-3 grid gap-1.5">
-              <a
-                href={`mailto:${club.contactEmail}`}
+              <EmailLink
+                address={club.contactEmail}
                 className="footer-link break-all font-display text-lg font-bold"
               >
                 Contact William - {club.contactEmail}
-              </a>
-              <a
-                href={`mailto:080-pmaroufi@${club.emailDomain}`}
+              </EmailLink>
+              <EmailLink
+                address={`080-pmaroufi@${club.emailDomain}`}
                 className="footer-link break-all font-display text-lg font-bold"
               >
                 Contact Paya - 080-pmaroufi@{club.emailDomain}
-              </a>
+              </EmailLink>
             </div>
           </section>
 
@@ -141,12 +140,10 @@ export default function About() {
             <p className="mt-3 font-display text-lg font-bold text-ink">
               {club.sponsorName}
             </p>
-            <a
-              href={`mailto:${club.sponsorEmail}`}
+            <EmailLink
+              address={club.sponsorEmail}
               className="footer-link mt-1 break-all text-slate"
-            >
-              {club.sponsorEmail}
-            </a>
+            />
           </section>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import EmailLink from "@/app/components/EmailLink";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -159,9 +160,10 @@ export default async function AdminRequestDetailPage({
               <DetailItem label="Requester">
                 <span className="font-semibold">{request.requesterName}</span>
                 <br />
-                <a className="text-navy underline underline-offset-4" href={`mailto:${request.requesterEmail}`}>
-                  {request.requesterEmail}
-                </a>
+                <EmailLink
+                  address={request.requesterEmail}
+                  className="text-navy underline underline-offset-4"
+                />
               </DetailItem>
               <DetailItem label="Submitted">{formatAdminDate(request.createdAt, true)}</DetailItem>
               <DetailItem label="Material">{request.material.toUpperCase()}</DetailItem>

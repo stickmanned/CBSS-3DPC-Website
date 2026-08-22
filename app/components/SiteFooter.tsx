@@ -1,3 +1,4 @@
+import EmailLink from "./EmailLink";
 import Link from "next/link";
 import { club, heroPhotos, nav } from "../lib/content";
 import { FILAMENT_COLORS } from "../lib/filament-colors";
@@ -77,21 +78,17 @@ export default function SiteFooter() {
           <div>
             <dt className="label">Club contact</dt>
             <dd className="mt-1">
-              <a
-                href={`mailto:${club.contactEmail}`}
+              <EmailLink
+                address={club.contactEmail}
                 className="footer-link break-all font-display font-bold"
-              >
-                {club.contactEmail}
-              </a>
+              />
             </dd>
           </div>
           <div>
             <dt className="label">Club sponsor</dt>
             <dd className="mt-1 text-sm text-slate">
               {club.sponsorName} ·{" "}
-              <a href={`mailto:${club.sponsorEmail}`} className="footer-link">
-                {club.sponsorEmail}
-              </a>
+              <EmailLink address={club.sponsorEmail} className="footer-link" />
             </dd>
           </div>
         </dl>

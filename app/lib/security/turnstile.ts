@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { turnstileDisabled } from "./turnstile-config";
 
 const turnstileResponseSchema = z.object({
   success: z.boolean(),
@@ -30,14 +31,26 @@ export async function verifyTurnstile(
 ): Promise<void> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const explicitlyDisabled = process.env.TURNSTILE_DISABLED === "true";
+
+  // Deliberately first, and a skip rather than a throw. This used to reject
+  // whenever the keys were also present, so the operator reaching for the
+  // switch during an outage took the form from degraded to entirely down.
+  if (turnstileDisabled()) {
+    console.warn(
+      "[turnstile] disabled by configuration; this request was accepted on the" +
+        " honeypot, fill-time, form-age and rate-limit checks alone",
+    );
+    return;
+  }
+
   if (!secret && !siteKey) {
-    if (process.env.NODE_ENV === "production" && !explicitlyDisabled) {
+    // Missing configuration is not the same as configuration that says "off",
+    // so production still fails closed here rather than silently unprotected.
+    if (process.env.NODE_ENV === "production") {
       throw new TurnstileConfigurationError();
     }
     return;
   }
-  if (explicitlyDisabled) throw new TurnstileConfigurationError();
   if (!secret || !siteKey) throw new TurnstileConfigurationError();
   if (!token) throw new TurnstileVerificationError();
 
