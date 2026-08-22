@@ -46,7 +46,13 @@ export async function POST(request: Request) {
       return response;
     }
 
-    await verifyTurnstile(parsed.turnstileToken, ip);
+    // The Host the browser actually reached is the hostname the challenge must
+    // have been solved on; pinning it to a config value is what broke this.
+    await verifyTurnstile(
+      parsed.turnstileToken,
+      ip,
+      new URL(request.url).hostname,
+    );
     // Do not let bogus challenges consume an arbitrary victim email's daily
     // allowance. The address limiter runs only after human verification.
     const emailLimit = await consumeUploadPresignEmailLimit(parsed.email);

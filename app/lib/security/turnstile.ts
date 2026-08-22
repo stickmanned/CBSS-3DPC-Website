@@ -25,9 +25,40 @@ export class TurnstileConfigurationError extends Error {
   }
 }
 
+/**
+ * Strips the port, lowercases, and folds `www.` into the apex so the three
+ * spellings of one site compare equal.
+ */
+function normalizeHostname(value: string | undefined): string {
+  const bare = (value ?? "").toLowerCase().trim().split(":")[0] ?? "";
+  return bare.startsWith("www.") ? bare.slice(4) : bare;
+}
+
+/**
+ * Which hostnames may have minted the token.
+ *
+ * The request's own hostname is always accepted, and that is the check that
+ * actually matters: it proves the challenge was solved on the site now
+ * spending the token, which is the replay this guard exists to stop. It also
+ * cannot go stale. A single pinned env value could and did — set to the Vercel
+ * preview domain, it rejected every token minted on the real domain and turned
+ * the whole upload path into "Request could not be processed." Configuration
+ * now only ever *widens* the set, so a forgotten value cannot take the site
+ * down again.
+ */
+function allowedHostnames(requestHostname?: string): string[] {
+  const configured = (process.env.TURNSTILE_EXPECTED_HOSTNAME ?? "")
+    .split(",")
+    .map(normalizeHostname)
+    .filter(Boolean);
+  const own = normalizeHostname(requestHostname);
+  return own ? [own, ...configured] : configured;
+}
+
 export async function verifyTurnstile(
   token: string | undefined,
   remoteIp?: string,
+  requestHostname?: string,
 ): Promise<void> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -78,10 +109,10 @@ export async function verifyTurnstile(
     throw new TurnstileVerificationError();
   }
 
-  const expectedHostname = process.env.TURNSTILE_EXPECTED_HOSTNAME?.toLowerCase();
+  const allowed = allowedHostnames(requestHostname);
   const expectedAction = process.env.TURNSTILE_EXPECTED_ACTION ?? "print-request";
   const hostnameMismatch =
-    Boolean(expectedHostname) && result.hostname?.toLowerCase() !== expectedHostname;
+    allowed.length > 0 && !allowed.includes(normalizeHostname(result.hostname));
   const actionMismatch = Boolean(expectedAction) && result.action !== expectedAction;
 
   if (!result.success || hostnameMismatch || actionMismatch) {
@@ -91,7 +122,7 @@ export async function verifyTurnstile(
     console.error(
       `[turnstile] rejected success=${result.success}` +
         ` codes=[${result["error-codes"]?.join(",") ?? ""}]` +
-        ` hostname=${result.hostname ?? "?"}${hostnameMismatch ? ` (expected ${expectedHostname})` : ""}` +
+        ` hostname=${result.hostname ?? "?"}${hostnameMismatch ? ` (allowed ${allowed.join("|")})` : ""}` +
         ` action=${result.action ?? "?"}${actionMismatch ? ` (expected ${expectedAction})` : ""}`,
     );
     throw new TurnstileVerificationError();

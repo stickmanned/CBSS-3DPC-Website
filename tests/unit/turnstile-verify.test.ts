@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   TurnstileConfigurationError,
+  TurnstileVerificationError,
   verifyTurnstile,
 } from "@/app/lib/security/turnstile";
 
@@ -61,5 +62,86 @@ describe("verifyTurnstile", () => {
     await expect(verifyTurnstile("token")).rejects.toBeInstanceOf(
       TurnstileConfigurationError,
     );
+  });
+});
+
+function siteverifyReturns(payload: Record<string, unknown>) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, action: "print-request", ...payload }),
+    }),
+  );
+}
+
+describe("verifyTurnstile hostname binding", () => {
+  function configured(value: string) {
+    withKeys();
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_DISABLED", "");
+    vi.stubEnv("TURNSTILE_DISABLED", "");
+    vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAME", value);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  }
+
+  it("accepts a token solved on the host the request arrived at", async () => {
+    configured("");
+    siteverifyReturns({ hostname: "3dprintingclub.org" });
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).resolves.toBeUndefined();
+  });
+
+  // The exact production failure: TURNSTILE_EXPECTED_HOSTNAME was pinned to the
+  // Vercel preview domain, so every token minted on the real domain was thrown
+  // out. Configuration must only widen the set, never replace it.
+  it("accepts the request's own host even when config names a different one", async () => {
+    configured("cbss-3dpc-website.vercel.app");
+    siteverifyReturns({ hostname: "3dprintingclub.org" });
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("still accepts the extra hostnames configuration lists", async () => {
+    configured("cbss-3dpc-website.vercel.app");
+    siteverifyReturns({ hostname: "cbss-3dpc-website.vercel.app" });
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects a token minted on some other site", async () => {
+    configured("");
+    siteverifyReturns({ hostname: "attacker.example" });
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).rejects.toBeInstanceOf(TurnstileVerificationError);
+  });
+
+  it.each([
+    ["www.3dprintingclub.org", "3dprintingclub.org"],
+    ["3dprintingclub.org", "www.3dprintingclub.org"],
+    ["localhost", "localhost:3000"],
+  ])("treats %o and %o as the same site", async (tokenHost, requestHost) => {
+    configured("");
+    siteverifyReturns({ hostname: tokenHost });
+
+    await expect(
+      verifyTurnstile("token", undefined, requestHost),
+    ).resolves.toBeUndefined();
+  });
+
+  it("still enforces the action", async () => {
+    configured("");
+    siteverifyReturns({ hostname: "3dprintingclub.org", action: "something-else" });
+
+    await expect(
+      verifyTurnstile("token", undefined, "3dprintingclub.org"),
+    ).rejects.toBeInstanceOf(TurnstileVerificationError);
   });
 });

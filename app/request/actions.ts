@@ -219,7 +219,11 @@ export async function submitPrintRequest(formData: FormData): Promise<SubmitPrin
     // A verified file token proves the presign endpoint already completed the
     // configured Turnstile check. Link-only submissions verify it here.
     if (!verifiedFileToken) {
-      await verifyTurnstile(formString(formData, "cf-turnstile-response") || undefined, ip);
+      await verifyTurnstile(
+        formString(formData, "cf-turnstile-response") || undefined,
+        ip,
+        incomingHeaders.get("host") ?? undefined,
+      );
     }
 
     let verifiedFile;
