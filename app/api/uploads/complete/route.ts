@@ -93,6 +93,10 @@ export async function POST(request: Request) {
     // can actually act on, and the generic wording sent them nowhere. Naming it
     // reveals no more than the checks the browser already runs before upload.
     if (error instanceof StorageVerificationError) {
+      console.error(
+        `[uploads/complete] StorageVerificationError reason=${error.reason}`,
+        error.message,
+      );
       logRequestFailure(cause.route, 400, error);
       const response = Response.json(
         {

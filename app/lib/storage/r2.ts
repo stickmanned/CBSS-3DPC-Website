@@ -19,8 +19,8 @@ export class StorageConfigurationError extends Error {
 }
 
 export class StorageVerificationError extends Error {
-  constructor() {
-    super("The uploaded file could not be verified.");
+  constructor(readonly reason = "unspecified") {
+    super(`The uploaded file could not be verified (${reason}).`);
     this.name = "StorageVerificationError";
   }
 }

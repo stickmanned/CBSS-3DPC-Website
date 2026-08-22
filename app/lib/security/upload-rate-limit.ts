@@ -7,10 +7,10 @@ import {
 import { hashRateLimitIdentifier } from "@/app/lib/queue/tokens";
 
 // These pre-verification ceilings are intentionally NAT-safe for a classroom.
-// Turnstile and the much tighter email-bound limit provide the finer control.
-const PRESIGN_IP_LIMIT = 240;
-const PRESIGN_EMAIL_LIMIT = 5;
-const COMPLETION_IP_LIMIT = 240;
+// Turnstile and the email-bound limit provide the finer control.
+const PRESIGN_IP_LIMIT = process.env.NODE_ENV !== "production" ? 1000 : 240;
+const PRESIGN_EMAIL_LIMIT = process.env.NODE_ENV !== "production" ? 500 : 50;
+const COMPLETION_IP_LIMIT = process.env.NODE_ENV !== "production" ? 1000 : 240;
 const HOUR_MS = 60 * 60 * 1_000;
 const DAY_MS = 24 * HOUR_MS;
 // R2 copies are server-side, but use a generous crash lease for the maximum

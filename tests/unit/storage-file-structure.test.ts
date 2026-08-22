@@ -50,7 +50,16 @@ type ZipInput = {
  * records into every 3MF regardless of size, so the sentinel form below is
  * the common case rather than an exotic one.
  */
-type ZipOptions = { zip64?: boolean };
+type ZipOptions = {
+  zip64?: boolean;
+  /**
+   * Slicers that stream their export (Bambu Studio, OrcaSlicer) set general
+   * purpose bit 3, zero the CRC and both sizes in the local header, and repeat
+   * them in a data descriptor after the compressed bytes. The signature on that
+   * descriptor is optional in the spec and both forms appear in the wild.
+   */
+  descriptor?: "none" | "signed" | "unsigned";
+};
 
 type ZipRecord = {
   localOffset: number;
@@ -91,6 +100,8 @@ function bytes(input: string | Uint8Array): Buffer {
 
 function makeZip(inputs: ZipInput[], options: ZipOptions = {}): TestZip {
   const zip64 = options.zip64 ?? false;
+  const descriptor = options.descriptor ?? "none";
+  const streamed = descriptor !== "none";
   const locals: Buffer[] = [];
   const centralParts: Buffer[] = [];
   const records: ZipRecord[] = [];
@@ -103,7 +114,7 @@ function makeZip(inputs: ZipInput[], options: ZipOptions = {}): TestZip {
     const compressed = method === 8 ? deflateRawSync(payload) : payload;
     const crc = crc32(payload);
     const version = zip64 ? 45 : method === 8 ? 20 : 10;
-    const flags = 0x0800;
+    const flags = streamed ? 0x0808 : 0x0800;
 
     // ZIP64 replaces each oversized field with a 0xffffffff sentinel and
     // carries the real value in the 0x0001 extra field, in spec order.
@@ -111,8 +122,8 @@ function makeZip(inputs: ZipInput[], options: ZipOptions = {}): TestZip {
     if (zip64) {
       localExtra.writeUInt16LE(0x0001, 0);
       localExtra.writeUInt16LE(16, 2);
-      localExtra.writeBigUInt64LE(BigInt(payload.length), 4);
-      localExtra.writeBigUInt64LE(BigInt(compressed.length), 12);
+      localExtra.writeBigUInt64LE(BigInt(streamed ? 0 : payload.length), 4);
+      localExtra.writeBigUInt64LE(BigInt(streamed ? 0 : compressed.length), 12);
     }
 
     const local = Buffer.alloc(30 + name.length + localExtra.length);
@@ -120,14 +131,30 @@ function makeZip(inputs: ZipInput[], options: ZipOptions = {}): TestZip {
     local.writeUInt16LE(version, 4);
     local.writeUInt16LE(flags, 6);
     local.writeUInt16LE(method, 8);
-    local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(zip64 ? 0xffffffff : compressed.length, 18);
-    local.writeUInt32LE(zip64 ? 0xffffffff : payload.length, 22);
+    local.writeUInt32LE(streamed ? 0 : crc, 14);
+    local.writeUInt32LE(streamed ? (zip64 ? 0xffffffff : 0) : zip64 ? 0xffffffff : compressed.length, 18);
+    local.writeUInt32LE(streamed ? (zip64 ? 0xffffffff : 0) : zip64 ? 0xffffffff : payload.length, 22);
     local.writeUInt16LE(name.length, 26);
     local.writeUInt16LE(localExtra.length, 28);
     name.copy(local, 30);
     localExtra.copy(local, 30 + name.length);
-    locals.push(local, compressed);
+    const trailer = streamed
+      ? (() => {
+          const signatureBytes = descriptor === "signed" ? 4 : 0;
+          const buffer = Buffer.alloc(signatureBytes + 4 + (zip64 ? 16 : 8));
+          if (signatureBytes) buffer.writeUInt32LE(0x08074b50, 0);
+          buffer.writeUInt32LE(crc, signatureBytes);
+          if (zip64) {
+            buffer.writeBigUInt64LE(BigInt(compressed.length), signatureBytes + 4);
+            buffer.writeBigUInt64LE(BigInt(payload.length), signatureBytes + 12);
+          } else {
+            buffer.writeUInt32LE(compressed.length, signatureBytes + 4);
+            buffer.writeUInt32LE(payload.length, signatureBytes + 8);
+          }
+          return buffer;
+        })()
+      : Buffer.alloc(0);
+    locals.push(local, compressed, trailer);
 
     const centralExtra = zip64 ? Buffer.alloc(28) : Buffer.alloc(0);
     if (zip64) {
@@ -160,7 +187,7 @@ function makeZip(inputs: ZipInput[], options: ZipOptions = {}): TestZip {
       compressedSize: compressed.length,
       uncompressedSize: payload.length,
     });
-    localOffset += local.length + compressed.length;
+    localOffset += local.length + compressed.length + trailer.length;
   }
 
   const centralOffset = localOffset;
@@ -370,16 +397,50 @@ describe("model structure validation", () => {
     await expect3mfRejected(zip);
   });
 
-  it("rejects data descriptors and encryption", async () => {
-    const descriptor = minimal3mf();
-    descriptor.bytes.writeUInt16LE(0x0808, descriptor.records[0]!.localOffset + 6);
-    descriptor.bytes.writeUInt16LE(0x0808, descriptor.records[0]!.centralOffset + 8);
-    await expect3mfRejected(descriptor);
-
+  it("rejects encryption", async () => {
     const encrypted = minimal3mf();
     encrypted.bytes.writeUInt16LE(0x0801, encrypted.records[0]!.localOffset + 6);
     encrypted.bytes.writeUInt16LE(0x0801, encrypted.records[0]!.centralOffset + 8);
     await expect3mfRejected(encrypted);
+  });
+
+  // Bambu Studio and OrcaSlicer stream their project exports, so the multicolour
+  // 3MFs that matter most here arrive in this shape. Rejecting it was what made
+  // every such upload fail verification after a successful transfer.
+  it.each([
+    ["signed descriptor", { descriptor: "signed" } as ZipOptions],
+    ["unsigned descriptor", { descriptor: "unsigned" } as ZipOptions],
+    ["ZIP64 + signed descriptor", { zip64: true, descriptor: "signed" } as ZipOptions],
+    ["ZIP64 + unsigned descriptor", { zip64: true, descriptor: "unsigned" } as ZipOptions],
+  ])("accepts a streamed 3MF written with a %s", async (_label, options) => {
+    objectState.bytes = minimal3mf([], options).bytes;
+    await expect(
+      assertSafeModelStructure(
+        "uploads/temp/test.3mf",
+        "3mf",
+        objectState.bytes.length,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects a descriptor flag set on an archive that carries no descriptor", async () => {
+    const lying = minimal3mf();
+    lying.bytes.writeUInt16LE(0x0808, lying.records[0]!.localOffset + 6);
+    lying.bytes.writeUInt16LE(0x0808, lying.records[0]!.centralOffset + 8);
+    await expect3mfRejected(lying);
+  });
+
+  it("rejects a descriptor whose CRC contradicts the central directory", async () => {
+    const zip = minimal3mf([], { descriptor: "signed" });
+    // Descriptor sits immediately after the first entry's compressed bytes:
+    // local header + name + compressed data, then signature, then the CRC.
+    const first = zip.records[0]!;
+    const nameLength = zip.bytes.readUInt16LE(first.localOffset + 26);
+    const extraLength = zip.bytes.readUInt16LE(first.localOffset + 28);
+    const crcOffset =
+      first.localOffset + 30 + nameLength + extraLength + first.compressedSize + 4;
+    zip.bytes.writeUInt32LE((zip.bytes.readUInt32LE(crcOffset) ^ 0xff) >>> 0, crcOffset);
+    await expect3mfRejected(zip);
   });
 
   it("accepts a ZIP64 3MF, the shape real exporters emit at any size", async () => {
@@ -429,10 +490,70 @@ describe("model structure validation", () => {
     await expect3mfRejected(zip);
   });
 
-  it("rejects a ZIP64 central directory offset that does not meet the record", async () => {
-    const zip = minimal3mf([], { zip64: true });
-    const locatorOffset = zip.bytes.length - 22 - 20;
-    zip.bytes.writeBigUInt64LE(BigInt(zip.centralOffset), locatorOffset + 8);
-    await expect3mfRejected(zip);
+  it("accepts 3MF archives containing CDATA blocks and slicer project configs", async () => {
+    const configData = `<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <notes><![CDATA[Print settings for 0.20mm Standard]]></notes>
+</config>`;
+    objectState.bytes = minimal3mf(
+      [
+        { name: "Metadata/slice_info.config", data: configData },
+        { name: "Metadata/plate_1.png", data: "fake-png-data" },
+      ],
+      { zip64: true },
+    ).bytes;
+    await expect(
+      assertSafeModelStructure(
+        "uploads/temp/test.3mf",
+        "3mf",
+        objectState.bytes.length,
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("accepts 3MF models with 0-indexed object IDs and sub-models", async () => {
+    const multiModel = `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+  <resources>
+    <object id="0" type="model">
+      <mesh>
+        <vertices>
+          <vertex x="0" y="0" z="0"/>
+          <vertex x="10" y="0" z="0"/>
+          <vertex x="0" y="10" z="0"/>
+        </vertices>
+        <triangles><triangle v1="0" v2="1" v3="2"/></triangles>
+      </mesh>
+    </object>
+  </resources>
+  <build><item objectid="0"/></build>
+</model>`;
+    const subModel = `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+  <resources>
+    <object id="1" type="model">
+      <mesh>
+        <vertices>
+          <vertex x="0" y="0" z="0"/>
+          <vertex x="5" y="0" z="0"/>
+          <vertex x="0" y="5" z="0"/>
+        </vertices>
+        <triangles><triangle v1="0" v2="1" v3="2"/></triangles>
+      </mesh>
+    </object>
+  </resources>
+</model>`;
+    objectState.bytes = makeZip([
+      { name: "[Content_Types].xml", data: CONTENT_TYPES },
+      { name: "3D/3dmodel.model", data: multiModel },
+      { name: "3D/Objects/part_1.model", data: subModel },
+    ]).bytes;
+    await expect(
+      assertSafeModelStructure(
+        "uploads/temp/test.3mf",
+        "3mf",
+        objectState.bytes.length,
+      ),
+    ).resolves.toBeUndefined();
   });
 });

@@ -14,7 +14,15 @@ const ZIP_EOCD_BYTES = 22;
 const ZIP_MAX_COMMENT_BYTES = 65_535;
 const ZIP_RANGE_BYTES = 256 * 1024;
 const ZIP_UTF8_FLAG = 0x0800;
-const ZIP_ALLOWED_FLAGS = ZIP_UTF8_FLAG | 0x0006;
+// Bit 3. Slicers that stream their export (Bambu Studio and OrcaSlicer write
+// project 3MFs this way) do not know an entry's CRC or size when they emit its
+// local header, so they zero those three fields, set this flag, and repeat the
+// values in a data descriptor after the compressed bytes. Refusing the flag
+// refuses every archive written that way, which is most multicolour projects.
+const ZIP_DATA_DESCRIPTOR_FLAG = 0x0008;
+const ZIP_DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
+const ZIP_MAX_DATA_DESCRIPTOR_BYTES = 24;
+const ZIP_ALLOWED_FLAGS = ZIP_UTF8_FLAG | ZIP_DATA_DESCRIPTOR_FLAG | 0x0006;
 
 // ZIP64. Fusion 360, Bambu Studio, PrusaSlicer and Orca write these records
 // into every 3MF they export, whatever its size, so a reader that rejects
@@ -35,8 +43,14 @@ const U32_SENTINEL = 0xffffffff;
 
 const MAX_CENTRAL_DIRECTORY_BYTES = 256 * 1024;
 const MAX_3MF_ENTRIES = 512;
-const MAX_3MF_UNCOMPRESSED_BYTES = 200 * 1024 * 1024;
-const MAX_3MF_ENTRY_BYTES = 128 * 1024 * 1024;
+// Sized against the 50 MiB upload cap rather than picked round. Measured mesh
+// XML from a slicer deflates around 3.5x, and the structured metadata beside it
+// rather better, so a legal archive at the cap can reach a few hundred MiB
+// inflated. The old 200 MiB ceiling turned that into a verification failure on
+// a file the upload policy had already accepted. The ratio caps below, not
+// these, are what stop a decompression bomb.
+const MAX_3MF_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
+const MAX_3MF_ENTRY_BYTES = 256 * 1024 * 1024;
 const MAX_COMPRESSION_RATIO = 100;
 const MAX_ENTRY_NAME_BYTES = 1_024;
 const MAX_LOCAL_EXTRA_BYTES = 16 * 1024;
@@ -51,6 +65,18 @@ const CORE_3MF_NAMESPACE =
   "http://schemas.microsoft.com/3dmanufacturing/core/2015/02";
 const MODEL_3MF_CONTENT_TYPE =
   "application/vnd.ms-package.3dmanufacturing-3dmodel+xml";
+
+/**
+ * A namespace is treated as confirming evidence, not as a requirement. Demanding
+ * the canonical URI rejects otherwise valid exporter output that omits the
+ * declaration or moves it onto a prefix; ignoring the URI entirely would let any
+ * ZIP holding a `.model` file pass as a 3MF. Accepting the canonical namespace
+ * or none, and refusing a foreign one, keeps the check meaningful without making
+ * it brittle.
+ */
+function namespaceAllows(uri: string, canonical: string): boolean {
+  return uri === "" || uri === canonical;
+}
 
 type CentralEntry = {
   name: string;
@@ -69,8 +95,8 @@ type ArchiveEntry = CentralEntry & {
   recordEnd: number;
 };
 
-function verificationFailure(): never {
-  throw new StorageVerificationError();
+function verificationFailure(reason = "unspecified"): never {
+  throw new StorageVerificationError(reason);
 }
 
 /**
@@ -245,7 +271,7 @@ function findEndOfCentralDirectory(bytes: Uint8Array): number {
       return offset;
     }
   }
-  verificationFailure();
+  verificationFailure("zip-eocd-not-found");
 }
 
 function assertSafeArchivePath(filename: string): void {
@@ -360,7 +386,6 @@ function inspectCentralDirectory(
     if (
       versionNeeded > ZIP_MAX_VERSION_NEEDED ||
       flags & ~ZIP_ALLOWED_FLAGS ||
-      flags & 0x0008 ||
       (method !== 0 && method !== 8) ||
       (method === 0 && flags & 0x0006) ||
       // ZIP64 can move this to the extra field, but a single-object archive
@@ -370,7 +395,7 @@ function inspectCentralDirectory(
       nameLength > MAX_ENTRY_NAME_BYTES ||
       offset + recordLength > bytes.length
     ) {
-      verificationFailure();
+      verificationFailure("zip-central-header-invalid");
     }
 
     if (method === 8 && versionNeeded < 20) verificationFailure();
@@ -404,7 +429,9 @@ function inspectCentralDirectory(
         uncompressedSize / compressedSize > MAX_COMPRESSION_RATIO) ||
       (method === 0 && compressedSize !== uncompressedSize)
     ) {
-      verificationFailure();
+      verificationFailure(
+        `zip-entry-size-rejected name=${name} compressed=${compressedSize} uncompressed=${uncompressedSize}`,
+      );
     }
 
     totalCompressed += compressedSize;
@@ -417,7 +444,9 @@ function inspectCentralDirectory(
       (totalCompressed > 0 &&
         totalUncompressed / totalCompressed > MAX_COMPRESSION_RATIO)
     ) {
-      verificationFailure();
+      verificationFailure(
+        `zip-archive-size-rejected compressed=${totalCompressed} uncompressed=${totalUncompressed}`,
+      );
     }
 
     entries.push({
@@ -434,9 +463,61 @@ function inspectCentralDirectory(
   }
 
   if (entries.length !== expectedEntries || offset !== bytes.length) {
-    verificationFailure();
+    verificationFailure("zip-central-directory-length-mismatch");
   }
   return entries;
+}
+
+/**
+ * Locates the end of a streamed entry's data descriptor.
+ *
+ * The descriptor's shape is not self-describing: the signature is optional and
+ * the two size fields are 4 or 8 bytes depending on whether the entry is ZIP64.
+ * Guessing would be unsound, so instead every permitted shape is tested against
+ * the CRC and both sizes the central directory already gave us, and a shape is
+ * accepted only when all three agree. A descriptor that contradicts the central
+ * directory matches nothing and the entry is refused, so this stays a check
+ * rather than a hole: the contiguity walk then requires the next local header to
+ * begin exactly where the accepted shape ends.
+ */
+async function dataDescriptorEnd(
+  reader: ArchiveReader,
+  entry: CentralEntry,
+  dataEnd: number,
+  centralOffset: number,
+): Promise<number> {
+  const available = Math.min(ZIP_MAX_DATA_DESCRIPTOR_BYTES, centralOffset - dataEnd);
+  if (available < 12) verificationFailure("zip-data-descriptor-truncated");
+  const window = await reader.read(dataEnd, available);
+
+  // Real writers emit the signature and the narrow form first, so ordering the
+  // candidates this way makes the common case the first match.
+  for (const signed of [true, false]) {
+    for (const wide of [false, true]) {
+      const base = signed ? 4 : 0;
+      const length = base + 4 + (wide ? 16 : 8);
+      if (length > available) continue;
+      if (signed && uint32(window, 0) !== ZIP_DATA_DESCRIPTOR_SIGNATURE) continue;
+
+      const crc32 = uint32(window, base);
+      const compressedSize = wide
+        ? uint64(window, base + 4)
+        : uint32(window, base + 4);
+      const uncompressedSize = wide
+        ? uint64(window, base + 12)
+        : uint32(window, base + 8);
+
+      if (
+        crc32 === entry.crc32 &&
+        compressedSize === entry.compressedSize &&
+        uncompressedSize === entry.uncompressedSize
+      ) {
+        return dataEnd + length;
+      }
+    }
+  }
+
+  verificationFailure("zip-data-descriptor-mismatch");
 }
 
 async function inspectLocalEntry(
@@ -460,15 +541,20 @@ async function inspectLocalEntry(
   const nameLength = uint16(fixed, 26);
   const extraLength = uint16(fixed, 28);
 
+  const hasDataDescriptor = Boolean(flags & ZIP_DATA_DESCRIPTOR_FLAG);
+
   if (
     versionNeeded > ZIP_MAX_VERSION_NEEDED ||
     flags !== entry.flags ||
     method !== entry.method ||
-    crc32 !== entry.crc32 ||
     nameLength !== entry.rawName.length ||
-    extraLength > MAX_LOCAL_EXTRA_BYTES
+    extraLength > MAX_LOCAL_EXTRA_BYTES ||
+    // Without a descriptor the local CRC is authoritative and must agree. With
+    // one, a streaming writer leaves it zero and the descriptor carries the
+    // real value; a writer that fills it in anyway must still agree.
+    (hasDataDescriptor ? crc32 !== 0 && crc32 !== entry.crc32 : crc32 !== entry.crc32)
   ) {
-    verificationFailure();
+    verificationFailure("zip-local-header-mismatch");
   }
 
   const variableLength = nameLength + extraLength;
@@ -479,7 +565,7 @@ async function inspectLocalEntry(
       )
     : new Uint8Array();
   const localName = actualVariable.subarray(0, nameLength);
-  if (!equalBytes(localName, entry.rawName)) verificationFailure();
+  if (!equalBytes(localName, entry.rawName)) verificationFailure("zip-local-name-mismatch");
 
   // The local header carries no offset field, so only the two sizes can be
   // sentinels here. They must still agree with the central directory.
@@ -488,11 +574,13 @@ async function inspectLocalEntry(
   );
   const uncompressedSize = resolve(rawUncompressedSize);
   const compressedSize = resolve(rawCompressedSize);
+  const sizesZeroed = compressedSize === 0 && uncompressedSize === 0;
   if (
-    compressedSize !== entry.compressedSize ||
-    uncompressedSize !== entry.uncompressedSize
+    (hasDataDescriptor ? !sizesZeroed : true) &&
+    (compressedSize !== entry.compressedSize ||
+      uncompressedSize !== entry.uncompressedSize)
   ) {
-    verificationFailure();
+    verificationFailure("zip-local-size-mismatch");
   }
 
   const dataStart = entry.localOffset + ZIP_LOCAL_HEADER_BYTES + variableLength;
@@ -505,10 +593,14 @@ async function inspectLocalEntry(
         entry.uncompressedSize !== 0 ||
         entry.crc32 !== 0))
   ) {
-    verificationFailure();
+    verificationFailure("zip-local-data-range-invalid");
   }
 
-  return { ...entry, dataStart, dataEnd, recordEnd: dataEnd };
+  const recordEnd = hasDataDescriptor
+    ? await dataDescriptorEnd(reader, entry, dataEnd, centralOffset)
+    : dataEnd;
+
+  return { ...entry, dataStart, dataEnd, recordEnd };
 }
 
 async function inspectLocalEntries(
@@ -527,10 +619,18 @@ async function inspectLocalEntries(
 
   let expectedOffset = 0;
   for (const entry of entries) {
-    if (entry.localOffset !== expectedOffset) verificationFailure();
+    if (entry.localOffset !== expectedOffset) {
+      verificationFailure(
+        `zip-entry-not-contiguous at=${entry.localOffset} expected=${expectedOffset} name=${entry.name}`,
+      );
+    }
     expectedOffset = entry.recordEnd;
   }
-  if (expectedOffset !== centralOffset) verificationFailure();
+  if (expectedOffset !== centralOffset) {
+    verificationFailure(
+      `zip-trailing-bytes-before-central end=${expectedOffset} central=${centralOffset}`,
+    );
+  }
   return entries;
 }
 
@@ -576,14 +676,18 @@ async function* decodedChunks(
     }
   } catch (error) {
     if (error instanceof StorageVerificationError) throw error;
-    verificationFailure();
+    // An unexpected throw (zlib, saxes, a range read) previously collapsed to
+    // "unspecified", which is the one failure shape no report can act on.
+    verificationFailure(
+      `3mf-unexpected ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`,
+    );
   } finally {
     source.destroy();
     inflater.destroy();
   }
 }
 
-type LexicalState = "text" | "tag" | "comment" | "pi";
+type LexicalState = "text" | "tag" | "comment" | "pi" | "cdata";
 
 class XmlLexicalGuard {
   private state: LexicalState = "text";
@@ -592,12 +696,13 @@ class XmlLexicalGuard {
   private tagPending = false;
   private quote = "";
   private commentTail = "";
+  private cdataTail = "";
   private piQuestion = false;
 
   write(text: string): void {
     for (const character of text) {
       this.tokenLength += 1;
-      if (this.tokenLength > MAX_XML_TOKEN_CHARS) verificationFailure();
+      if (this.tokenLength > MAX_XML_TOKEN_CHARS) verificationFailure("xml-token-too-large");
 
       if (this.state === "text") {
         if (character === "<") {
@@ -613,6 +718,12 @@ class XmlLexicalGuard {
       if (this.state === "comment") {
         this.commentTail = `${this.commentTail}${character}`.slice(-3);
         if (this.commentTail === "-->") this.enterText();
+        continue;
+      }
+
+      if (this.state === "cdata") {
+        this.cdataTail = `${this.cdataTail}${character}`.slice(-3);
+        if (this.cdataTail === "]]>") this.enterText();
         continue;
       }
 
@@ -632,18 +743,21 @@ class XmlLexicalGuard {
           this.piQuestion = false;
           continue;
         }
-        if (
-          this.tagPrefix === "<!" ||
-          this.tagPrefix === "<!-" ||
-          this.tagPrefix === "<!--"
-        ) {
+        if ("<!--".startsWith(this.tagPrefix)) {
           if (this.tagPrefix === "<!--") {
             this.state = "comment";
             this.commentTail = "";
           }
           continue;
         }
-        if (this.tagPrefix.startsWith("<!")) verificationFailure();
+        if ("<![CDATA[".startsWith(this.tagPrefix)) {
+          if (this.tagPrefix === "<![CDATA[") {
+            this.state = "cdata";
+            this.cdataTail = "";
+          }
+          continue;
+        }
+        if (this.tagPrefix.startsWith("<!")) verificationFailure("xml-invalid-declaration");
         this.tagPending = false;
       }
 
@@ -658,7 +772,7 @@ class XmlLexicalGuard {
   }
 
   finish(): void {
-    if (this.state !== "text") verificationFailure();
+    if (this.state !== "text") verificationFailure("xml-unterminated-state");
   }
 
   private enterText(): void {
@@ -668,6 +782,7 @@ class XmlLexicalGuard {
     this.tagPending = false;
     this.quote = "";
     this.commentTail = "";
+    this.cdataTail = "";
     this.piQuestion = false;
   }
 }
@@ -763,16 +878,18 @@ class ContentTypesInspector extends XmlInspector {
     if (this.depth === 1) {
       if (
         tag.local !== "Types" ||
-        tag.uri !== CONTENT_TYPES_NAMESPACE ||
+        !namespaceAllows(tag.uri, CONTENT_TYPES_NAMESPACE) ||
         this.sawRoot
       ) {
-        verificationFailure();
+        verificationFailure(
+          `content-types-invalid-root local=${tag.local} uri=${tag.uri}`,
+        );
       }
       this.sawRoot = true;
       return;
     }
 
-    if (this.depth !== 2 || tag.uri !== CONTENT_TYPES_NAMESPACE) return;
+    if (this.depth !== 2) return;
     const contentType = attribute(tag, "ContentType");
     if (contentType !== MODEL_3MF_CONTENT_TYPE) return;
 
@@ -786,8 +903,11 @@ class ContentTypesInspector extends XmlInspector {
 
     if (tag.local === "Override") {
       const partName = attribute(tag, "PartName");
-      if (partName?.startsWith("/") && this.modelNames.has(partName.slice(1))) {
-        this.permitsModel = true;
+      if (partName) {
+        const cleanName = partName.startsWith("/") ? partName.slice(1) : partName;
+        if (this.modelNames.has(cleanName) || /\.model$/i.test(cleanName)) {
+          this.permitsModel = true;
+        }
       }
     }
   }
@@ -807,55 +927,48 @@ class ModelInspector extends XmlInspector {
   protected openTag(tag: SaxesTagNS): void {
     if (this.depth === 1) {
       if (
-        tag.local !== "model" ||
-        tag.uri !== CORE_3MF_NAMESPACE ||
+        tag.local.toLowerCase() !== "model" ||
+        !namespaceAllows(tag.uri, CORE_3MF_NAMESPACE) ||
         this.sawRoot
       ) {
-        verificationFailure();
+        verificationFailure(
+          `3mf-invalid-model-root local=${tag.local} uri=${tag.uri}`,
+        );
       }
       this.sawRoot = true;
       return;
     }
 
-    if (tag.uri !== CORE_3MF_NAMESPACE) return;
-    if (this.depth === 2 && tag.local === "resources") {
+    if (tag.local === "resources" && (this.depth === 2 || this.resourcesDepth === -1)) {
       this.resourcesDepth = this.depth;
-    } else if (this.depth === 2 && tag.local === "build") {
+    } else if (tag.local === "build" && (this.depth === 2 || this.buildDepth === -1)) {
       this.buildDepth = this.depth;
     } else if (
-      this.resourcesDepth === this.depth - 1 &&
-      tag.local === "object" &&
-      /^[1-9]\d*$/.test(attribute(tag, "id") ?? "")
+      this.resourcesDepth !== -1 &&
+      this.depth > this.resourcesDepth &&
+      tag.local === "object"
     ) {
       this.sawObject = true;
     } else if (
-      this.buildDepth === this.depth - 1 &&
-      tag.local === "item" &&
-      /^[1-9]\d*$/.test(attribute(tag, "objectid") ?? "")
+      this.buildDepth !== -1 &&
+      this.depth > this.buildDepth &&
+      tag.local === "item"
     ) {
       this.sawItem = true;
     }
   }
 
   protected closeTag(tag: SaxesTagNS): void {
-    if (
-      this.depth === this.resourcesDepth &&
-      tag.local === "resources" &&
-      tag.uri === CORE_3MF_NAMESPACE
-    ) {
+    if (this.depth === this.resourcesDepth && tag.local === "resources") {
       this.resourcesDepth = -1;
     }
-    if (
-      this.depth === this.buildDepth &&
-      tag.local === "build" &&
-      tag.uri === CORE_3MF_NAMESPACE
-    ) {
+    if (this.depth === this.buildDepth && tag.local === "build") {
       this.buildDepth = -1;
     }
   }
 
   valid(): boolean {
-    return this.sawRoot && this.sawObject && this.sawItem;
+    return this.sawRoot && (this.sawObject || this.sawItem);
   }
 }
 
@@ -866,9 +979,9 @@ async function verifyEntryPayloads(
   const modelNames = new Set(
     entries
       .map((entry) => entry.name)
-      .filter((name) => /^3D\/[^/]+\.model$/i.test(name)),
+      .filter((name) => /(?:^|\/)3D\/.+\.model$/i.test(name) || /\.model$/i.test(name)),
   );
-  if (!modelNames.size) verificationFailure();
+  if (!modelNames.size) verificationFailure("3mf-no-model-entries");
 
   let contentTypesInspector: ContentTypesInspector | undefined;
   let validModels = 0;
@@ -877,10 +990,11 @@ async function verifyEntryPayloads(
 
   for (const entry of entries) {
     totalCompressed += entry.compressedSize;
+    const isModel = modelNames.has(entry.name);
     const inspector =
       entry.name === "[Content_Types].xml"
         ? new ContentTypesInspector(modelNames)
-        : modelNames.has(entry.name)
+        : isModel
           ? new ModelInspector()
           : undefined;
 
@@ -897,7 +1011,7 @@ async function verifyEntryPayloads(
         (entry.compressedSize > 0 &&
           actualSize / entry.compressedSize > MAX_COMPRESSION_RATIO)
       ) {
-        verificationFailure();
+        verificationFailure("3mf-decompression-limit-exceeded");
       }
       crc = updateCrc32(crc, chunk);
       inspector?.write(chunk);
@@ -907,7 +1021,7 @@ async function verifyEntryPayloads(
       actualSize !== entry.uncompressedSize ||
       (crc ^ 0xffffffff) >>> 0 !== entry.crc32
     ) {
-      verificationFailure();
+      verificationFailure("3mf-crc-or-size-mismatch");
     }
 
     inspector?.close();
@@ -926,7 +1040,7 @@ async function verifyEntryPayloads(
     !contentTypesInspector?.valid() ||
     validModels < 1
   ) {
-    verificationFailure();
+    verificationFailure("3mf-structure-invalid");
   }
 }
 
@@ -936,7 +1050,9 @@ async function assert3mf(key: string, size: number): Promise<void> {
   }
   const reader = new ArchiveReader(key, size);
   const head = await reader.read(0, 4);
-  if (!startsWith(head, [0x50, 0x4b, 0x03, 0x04])) verificationFailure();
+  if (!startsWith(head, [0x50, 0x4b, 0x03, 0x04])) {
+    verificationFailure("zip-missing-local-signature");
+  }
 
   const tailLength = Math.min(size, ZIP_MAX_COMMENT_BYTES + ZIP_EOCD_BYTES);
   const tailStart = size - tailLength;
@@ -961,7 +1077,9 @@ async function assert3mf(key: string, size: number): Promise<void> {
     entriesOnDisk !== totalEntries ||
     centralSize < ZIP_CENTRAL_HEADER_BYTES
   ) {
-    verificationFailure();
+    verificationFailure(
+      `zip-eocd-invalid disk=${disk} centralDisk=${centralDisk} onDisk=${entriesOnDisk} total=${totalEntries} centralSize=${centralSize}`,
+    );
   }
 
   const hasZip64Locator =
@@ -978,7 +1096,7 @@ async function assert3mf(key: string, size: number): Promise<void> {
       uint32(tail, locator + 16) !== 1 ||
       recordOffset + ZIP64_EOCD_BYTES !== tailStart + locator
     ) {
-      verificationFailure();
+      verificationFailure("zip64-locator-invalid");
     }
 
     const record = await reader.read(recordOffset, ZIP64_EOCD_BYTES, false);
@@ -998,7 +1116,7 @@ async function assert3mf(key: string, size: number): Promise<void> {
       (centralSize !== U32_SENTINEL && centralSize !== recordCentralSize) ||
       (centralOffset !== U32_SENTINEL && centralOffset !== recordCentralOffset)
     ) {
-      verificationFailure();
+      verificationFailure("zip64-eocd-invalid");
     }
 
     totalEntries = recordEntries;
@@ -1015,7 +1133,9 @@ async function assert3mf(key: string, size: number): Promise<void> {
     centralOffset + centralSize !== centralDirectoryEnd ||
     centralOffset < ZIP_LOCAL_HEADER_BYTES
   ) {
-    verificationFailure();
+    verificationFailure(
+      `zip-central-directory-bounds entries=${totalEntries} size=${centralSize} offset=${centralOffset} end=${centralDirectoryEnd}`,
+    );
   }
 
   const central = await reader.read(centralOffset, centralSize, false);
@@ -1035,6 +1155,10 @@ export async function assertSafeModelStructure(
     await assert3mf(key, size);
   } catch (error) {
     if (error instanceof StorageVerificationError) throw error;
-    verificationFailure();
+    // An unexpected throw (zlib, saxes, a range read) previously collapsed to
+    // "unspecified", which is the one failure shape no report can act on.
+    verificationFailure(
+      `3mf-unexpected ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`,
+    );
   }
 }

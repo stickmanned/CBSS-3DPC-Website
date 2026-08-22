@@ -101,15 +101,40 @@ function assertHeadMatches(
   head: HeadObjectOutput,
   expected: ObjectExpectation,
 ): string {
+  const headContentType = head.ContentType?.toLowerCase().split(";")[0].trim();
+  const metadata = head.Metadata ?? {};
+  const normalizedMeta: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(metadata)) {
+    normalizedMeta[k.toLowerCase()] = v;
+  }
+
+  const sizeMismatch = head.ContentLength !== expected.size;
+  const typeMismatch = headContentType !== expected.contentType;
+  const nonceMismatch = normalizedMeta["upload-nonce"] !== expected.nonce;
+  const declaredSizeMismatch = normalizedMeta["declared-size"] !== String(expected.size);
+  const formatMismatch = normalizedMeta["file-format"] !== expected.format;
+  const etagMismatch =
+    expected.sourceEtag && normalizedMeta["source-etag"] !== expected.sourceEtag;
+
   if (
-    head.ContentLength !== expected.size ||
-    head.ContentType?.toLowerCase() !== expected.contentType ||
-    head.Metadata?.["upload-nonce"] !== expected.nonce ||
-    head.Metadata?.["declared-size"] !== String(expected.size) ||
-    head.Metadata?.["file-format"] !== expected.format ||
-    (expected.sourceEtag && head.Metadata?.["source-etag"] !== expected.sourceEtag)
+    sizeMismatch ||
+    typeMismatch ||
+    nonceMismatch ||
+    declaredSizeMismatch ||
+    formatMismatch ||
+    etagMismatch
   ) {
-    throw new StorageVerificationError();
+    const fields = [
+      `size=${head.ContentLength}/${expected.size}`,
+      `type=${headContentType}/${expected.contentType}`,
+      `nonce=${normalizedMeta["upload-nonce"] ? "present" : "MISSING"}/${nonceMismatch ? "MISMATCH" : "ok"}`,
+      `declared-size=${normalizedMeta["declared-size"] ?? "MISSING"}/${String(expected.size)}`,
+      `file-format=${normalizedMeta["file-format"] ?? "MISSING"}/${expected.format}`,
+      `meta-keys=[${Object.keys(metadata).join(",")}]`,
+    ];
+    throw new StorageVerificationError(
+      `head-mismatch ${fields.join(" ")}`,
+    );
   }
   return normalizeEtag(head.ETag);
 }
@@ -217,13 +242,22 @@ export async function completeModelUpload(
   if (finalized) return finalized;
 
   const tempHead = await headObject(intent.tempKey);
-  if (!tempHead) throw new StorageVerificationError();
+  if (!tempHead) {
+    console.error(
+      `[completeModelUpload] temp object not found key=${intent.tempKey}`,
+    );
+    throw new StorageVerificationError("temp-object-not-found");
+  }
 
   let sourceEtag: string;
   try {
     sourceEtag = assertHeadMatches(tempHead, intent);
     await assertSafeModelStructure(intent.tempKey, intent.format, intent.size);
   } catch (error) {
+    console.error(
+      `[completeModelUpload] verification failed for key=${intent.tempKey} format=${intent.format}`,
+      error instanceof Error ? error.message : error,
+    );
     await deleteTempObjectQuietly(intent.tempKey);
     throw error;
   }

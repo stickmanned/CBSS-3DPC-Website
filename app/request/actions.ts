@@ -35,8 +35,8 @@ import {
   StorageVerificationError,
 } from "@/app/lib/storage/r2";
 
-const SUBMISSION_IP_LIMIT = 10;
-const SUBMISSION_EMAIL_LIMIT = 5;
+const SUBMISSION_IP_LIMIT = process.env.NODE_ENV !== "production" ? 500 : 60;
+const SUBMISSION_EMAIL_LIMIT = process.env.NODE_ENV !== "production" ? 250 : 30;
 const HOUR_SECONDS = 60 * 60;
 const DAY_SECONDS = 24 * HOUR_SECONDS;
 const MIN_FILL_MS = 1_500;

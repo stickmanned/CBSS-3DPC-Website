@@ -200,6 +200,7 @@ export default function SiteHeader() {
                 </Link>
               </li>
             ))}
+            
             <li>
               <Link
                 href="/about#join"
