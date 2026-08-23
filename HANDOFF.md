@@ -294,3 +294,23 @@ Every August, before students return:
 
 If continuity or safety is uncertain, keep intake closed. The public club site
 can remain available while queue routes are unavailable.
+
+## 8. Launch gates before accepting student requests
+
+Do not open intake to real students until every item here is complete. These
+were previously listed in the project README and moved here so the operational
+record is in one place.
+
+- Change the repository to private, audit repository and Actions readers, and
+  verify the backup workflow's private-repository guard.
+- Obtain advisor and SD43 privacy approval for handling minors' contact details
+  and model files.
+- Confirm club/advisor co-ownership and recovery access for every provider
+  account.
+- Verify private R2 access, exact-origin CORS, upload and download smoke tests,
+  and retention cleanup.
+- Send a real `@sd43.bc.ca` email delivery test and document fallback handling.
+- Complete a successful backup and restore drill.
+- Confirm there is no payment, donation, fee, or commercial activity while the
+  site runs on Vercel Hobby. Move to an eligible paid host before adding any
+  money flow.
