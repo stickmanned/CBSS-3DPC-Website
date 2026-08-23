@@ -17,16 +17,17 @@ in the browser. Nothing is uploaded until you actually submit the request.
 
 ![The request form with an STL loaded in the 3D preview](docs/screenshots/model-preview.png)
 
-**238 filament colours, searchable, in print order.** Pick up to four, or leave it
-empty and let the club choose.
+**238 filament colours, searchable.** Pick up to four for multicolor printing. Note: we do not have 238 colors but if the user would like a certain color, we will buy that color.
 
 ![The filament colour picker](docs/screenshots/filament-picker.png)
 
 ![The print request form](docs/screenshots/request-form.png)
 
 ![ The admin queue dashboard ](docs/screenshots/admin-queue.png)
+**Admins can manage requests, see printing status, and approve prints.**
 
 ![A requester status page](docs/screenshots/status.png)
+**Requesters (whoever requested the print) can track their print and receive email updates via a link without a login.**
 
 
 
