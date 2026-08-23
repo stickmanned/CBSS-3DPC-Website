@@ -84,11 +84,18 @@ export function getR2Connection(): R2Connection {
   return cachedConnection;
 }
 
+/**
+ * Whether a key is one this app minted. Anything else in the bucket -- a
+ * console upload, a migration leftover, a diagnostic object -- is not ours to
+ * reason about, and the sweep that walks the bucket has to be able to say so
+ * without failing.
+ */
+export function isServerOwnedKey(key: string, area: "temp" | "final"): boolean {
+  return new RegExp(`^uploads/${area}/[A-Za-z0-9_-]+\\.(?:stl|3mf)$`).test(key);
+}
+
 export function assertServerOwnedKey(key: string, area: "temp" | "final"): void {
-  const expected = new RegExp(
-    `^uploads/${area}/[A-Za-z0-9_-]+\\.(?:stl|3mf)$`,
-  );
-  if (!expected.test(key)) throw new StorageVerificationError();
+  if (!isServerOwnedKey(key, area)) throw new StorageVerificationError();
 }
 
 export async function readObjectRange(

@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { inArray } from "drizzle-orm";
 import { getDatabase, requestFile } from "@/app/lib/db";
-import { assertServerOwnedKey, getR2Connection } from "./r2";
+import { assertServerOwnedKey, getR2Connection, isServerOwnedKey } from "./r2";
 
 const ABANDONED_UPLOAD_GRACE_MS = 24 * 60 * 60 * 1_000;
 const MAX_LISTED_OBJECTS_PER_AREA = 10_000;
@@ -39,7 +39,11 @@ async function expiredObjectKeys(
 
     for (const object of page.Contents ?? []) {
       if (!object.Key || !object.LastModified || object.LastModified > cutoff) continue;
-      assertServerOwnedKey(object.Key, area);
+      // Skip, never throw. This used to assert, so a single object the app did
+      // not create -- and there is no rule that says the bucket only contains
+      // ours -- aborted the whole sweep and quietly stopped every abandoned
+      // upload from ever being cleaned up.
+      if (!isServerOwnedKey(object.Key, area)) continue;
       keys.push(object.Key);
       if (keys.length >= MAX_LISTED_OBJECTS_PER_AREA) break;
     }
