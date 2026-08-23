@@ -25,7 +25,7 @@ export class StorageVerificationError extends Error {
   }
 }
 
-function r2Endpoint(): string {
+export function r2Endpoint(): string {
   const explicit = process.env.R2_ENDPOINT;
   const accountId = process.env.R2_ACCOUNT_ID;
   const raw = explicit || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : "");

@@ -5,6 +5,11 @@ type PresignResponse = {
   headers: Record<string, string>;
   intentToken: string;
   expiresIn?: number;
+  // False when the server has confirmed the bucket's CORS policy does not list
+  // this site. The PUT below will then fail with no status and no reason --
+  // the browser withholds both from the page -- so this flag is the only way
+  // to tell a refused origin from a dropped connection.
+  storageOriginAllowed?: boolean;
 };
 
 type CompleteResponse = {
@@ -57,18 +62,25 @@ async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Pr
   return (await response.json()) as T;
 }
 
+export const STORAGE_ORIGIN_REFUSED =
+  "The club's file storage is not accepting uploads from this website yet." +
+  " This is a setting on our side, not a problem with your model. Email the" +
+  " club and we will take your file directly.";
+
 function putFile({
   uploadUrl,
   headers,
   file,
   signal,
   onProgress,
+  originAllowed,
 }: {
   uploadUrl: string;
   headers: Record<string, string>;
   file: File;
   signal?: AbortSignal;
   onProgress?: (percent: number) => void;
+  originAllowed: boolean;
 }) {
   return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
@@ -106,7 +118,15 @@ function putFile({
       );
     });
     request.addEventListener("error", () =>
-      finish(() => reject(new ClientUploadError("The upload lost its connection. Try again."))),
+      finish(() =>
+        reject(
+          new ClientUploadError(
+            originAllowed
+              ? "The upload lost its connection. Try again."
+              : STORAGE_ORIGIN_REFUSED,
+          ),
+        ),
+      ),
     );
     request.addEventListener("abort", () =>
       finish(() => reject(new DOMException("The upload was cancelled.", "AbortError"))),
@@ -174,6 +194,7 @@ export async function uploadModelFile({
     file,
     signal,
     onProgress,
+    originAllowed: presign.storageOriginAllowed !== false,
   });
 
   const completed = await postJson<CompleteResponse>(

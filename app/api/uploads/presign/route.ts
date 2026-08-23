@@ -20,6 +20,7 @@ import {
 import { TokenConfigurationError } from "@/app/lib/security/hmac-token";
 import { StorageConfigurationError } from "@/app/lib/storage/r2";
 import { presignModelUpload } from "@/app/lib/storage/upload-lifecycle";
+import { bucketAcceptsUploadsFrom } from "@/app/lib/storage/upload-cors";
 import {
   assertHumanTiming,
   canonicalContentType,
@@ -72,10 +73,24 @@ export async function POST(request: Request) {
       email: parsed.email,
     });
 
-    return Response.json(result, {
-      status: 200,
-      headers: { "Cache-Control": "no-store" },
-    });
+    // The browser is about to PUT straight to R2, where the bucket's CORS
+    // policy decides in a place this app cannot see. Ask now, so a refusal is
+    // named in the log and the requester gets a message that is actually true
+    // instead of "the upload lost its connection".
+    const siteOrigin = new URL(request.url).origin;
+    const verdict = await bucketAcceptsUploadsFrom(siteOrigin);
+    if (verdict === "refused") {
+      console.error(
+        `[uploads/presign] R2 refuses browser uploads from ${siteOrigin}:` +
+          " the bucket's CORS AllowedOrigins does not list it, so every PUT" +
+          " from this domain will fail before it is sent.",
+      );
+    }
+
+    return Response.json(
+      { ...result, storageOriginAllowed: verdict !== "refused" },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     const cause = { route: "uploads/presign", error };
     if (
