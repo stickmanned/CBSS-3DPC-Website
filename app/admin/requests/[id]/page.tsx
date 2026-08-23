@@ -7,6 +7,7 @@ import AdminEventLog from "@/app/components/admin/AdminEventLog";
 import AdminHeader from "@/app/components/admin/AdminHeader";
 import AdminModelViewer from "@/app/components/admin/AdminModelViewer";
 import { PREVIEW_MAX_BYTES } from "@/app/lib/storage/upload-policy";
+import { modelObjectPresence } from "@/app/lib/storage/file-availability";
 import DetailMetadataForm from "@/app/components/admin/DetailMetadataForm";
 import TransitionComposer, {
   type EmailPreview,
@@ -129,6 +130,14 @@ export default async function AdminRequestDetailPage({
       ? [{ slug: color.slug, name: color.name, hex: color.hex, swatch: color.swatch }]
       : [];
   });
+  // A purged file is already stamped in the database. This catches the other
+  // shape: the row is intact and the object is not, which otherwise renders a
+  // viewer that 404s and a download button that leads to an R2 error page.
+  const modelMissing =
+    file != null &&
+    !file.purgedAt &&
+    (await modelObjectPresence(file.storageKey)) === "missing";
+
   const choices = transitionChoices(request, file);
 
   return (
@@ -234,7 +243,7 @@ export default async function AdminRequestDetailPage({
 
           <aside className="space-y-6">
             <section className="overflow-hidden rounded-[20px] border border-mist bg-white">
-              {file && !file.purgedAt ? (
+              {file && !file.purgedAt && !modelMissing ? (
                 <AdminModelViewer
                   src={`/api/admin/files/${file.id}/model`}
                   fileName={file.originalName}
@@ -267,7 +276,7 @@ export default async function AdminRequestDetailPage({
               {/* The requester's own capture. It is re-taken whenever they repaint,
                   so it is the only record of a per-part arrangement — that mapping
                   is not submitted with the request. */}
-              {file && !file.purgedAt && file.thumbnailDataUri && (
+              {file && !file.purgedAt && !modelMissing && file.thumbnailDataUri && (
                 <figure className="border-t border-mist p-5">
                   <figcaption className="text-xs text-slate">
                     As the requester arranged it
@@ -293,6 +302,31 @@ export default async function AdminRequestDetailPage({
                       <p className="mt-4 rounded-xl bg-cloud px-4 py-3 text-sm text-slate">
                         The retained file was purged {formatAdminDate(file.purgedAt)}.
                       </p>
+                    ) : modelMissing ? (
+                      // Deliberately not phrased as a purge. Retention stamps a
+                      // date; this file went missing without one, and saying so
+                      // is what tells an admin to ask for a re-upload rather
+                      // than wait for a download that will never work.
+                      <div className="mt-4 rounded-xl bg-cloud px-4 py-3 text-sm text-slate">
+                        <p className="font-semibold text-ink">
+                          This model is no longer in storage.
+                        </p>
+                        <p className="mt-2">
+                          The request and its details are intact, but the file itself is
+                          gone and cannot be downloaded or previewed. Ask the requester to
+                          re-upload it.
+                        </p>
+                        <p className="mt-3">
+                          <EmailLink
+                            address={request.requesterEmail}
+                            subject={`Re-upload needed for print request ${request.ref}`}
+                            body={`Hi ${request.requesterName},\n\nWe are missing the model file for your print request ${request.ref} (${file.originalName}). Could you submit it again at https://3dprintingclub.org/request? Everything else on the request is unchanged.\n\nThanks,\nCBSS 3D Printing Club`}
+                            className="font-semibold text-navy underline underline-offset-4"
+                          >
+                            Email {request.requesterName} for a re-upload
+                          </EmailLink>
+                        </p>
+                      </div>
                     ) : (
                       <>
                         <Link

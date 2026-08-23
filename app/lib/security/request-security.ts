@@ -179,7 +179,7 @@ export function logRequestFailure(
 }
 
 export function genericError(
-  status: 400 | 403 | 404 | 409 | 413 | 429 | 503,
+  status: 400 | 403 | 404 | 409 | 410 | 413 | 429 | 503,
   cause?: { route: string; error?: unknown },
 ) {
   if (cause) logRequestFailure(cause.route, status, cause.error);

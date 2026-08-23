@@ -4,6 +4,7 @@ import { genericError } from "@/app/lib/security/request-security";
 import { findDownloadableRequestFile } from "@/app/lib/storage/file-store";
 import { createPresignedDownload } from "@/app/lib/storage/upload-lifecycle";
 import { StorageConfigurationError } from "@/app/lib/storage/r2";
+import { modelObjectPresence } from "@/app/lib/storage/file-availability";
 import { PREVIEW_MAX_BYTES } from "@/app/lib/storage/upload-policy";
 
 const paramsSchema = z.object({ fileId: z.string().uuid() });
@@ -26,6 +27,12 @@ export async function GET(
     const file = await findDownloadableRequestFile(fileId);
     if (!file) return genericError(404);
     if (file.verifiedByteSize > PREVIEW_MAX_BYTES) return genericError(413);
+    if ((await modelObjectPresence(file.storageKey)) === "missing") {
+      return genericError(410, {
+        route: "admin/files/model",
+        error: new Error(`object-missing key=${file.storageKey} file=${file.id}`),
+      });
+    }
 
     const url = await createPresignedDownload({
       key: file.storageKey,

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   findFile: vi.fn(),
   createDownload: vi.fn(),
+  presence: vi.fn(),
 }));
 
 vi.mock("@/app/lib/auth/require-admin", () => ({
@@ -16,6 +17,10 @@ vi.mock("@/app/lib/storage/file-store", () => ({
 
 vi.mock("@/app/lib/storage/upload-lifecycle", () => ({
   createPresignedDownload: mocks.createDownload,
+}));
+
+vi.mock("@/app/lib/storage/file-availability", () => ({
+  modelObjectPresence: mocks.presence,
 }));
 
 import { GET } from "@/app/api/admin/files/[fileId]/route";
@@ -33,7 +38,9 @@ describe("admin file delivery", () => {
     mocks.requireAdmin.mockReset();
     mocks.findFile.mockReset();
     mocks.createDownload.mockReset();
+    mocks.presence.mockReset();
     mocks.requireAdmin.mockResolvedValue({ githubId: "12345" });
+    mocks.presence.mockResolvedValue("present");
   });
 
   it("does not query or sign a file for a revoked admin", async () => {
@@ -49,6 +56,45 @@ describe("admin file delivery", () => {
     const response = await requestFile();
     expect(response.status).toBe(404);
     expect(mocks.createDownload).not.toHaveBeenCalled();
+  });
+
+  // Two real print requests lost their objects while the rows stayed intact.
+  // Signing a URL for those sent the admin to R2's raw NoSuchKey XML.
+  it("answers 410 instead of signing a URL for an object that is gone", async () => {
+    mocks.findFile.mockResolvedValue({
+      id: FILE_ID,
+      requestId: "c0a80101-1234-4abc-8def-1234567890ac",
+      storageKey: "uploads/final/vanished.3mf",
+      originalName: "mech_arm_updated.3mf",
+      verifiedByteSize: 21866675,
+      fileKind: "3mf",
+      etag: "abc",
+    });
+    mocks.presence.mockResolvedValue("missing");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await requestFile();
+    expect(response.status).toBe(410);
+    expect(mocks.createDownload).not.toHaveBeenCalled();
+  });
+
+  // A credentials or network fault must not make a present file undownloadable.
+  it("still signs the download when presence cannot be determined", async () => {
+    mocks.findFile.mockResolvedValue({
+      id: FILE_ID,
+      requestId: "c0a80101-1234-4abc-8def-1234567890ac",
+      storageKey: "uploads/final/server-owned.stl",
+      originalName: "student-part.stl",
+      verifiedByteSize: 134,
+      fileKind: "stl",
+      etag: "abc",
+    });
+    mocks.presence.mockResolvedValue("unknown");
+    mocks.createDownload.mockResolvedValue("https://r2.example/signed");
+
+    const response = await requestFile();
+    expect(response.status).toBe(307);
+    expect(mocks.createDownload).toHaveBeenCalled();
   });
 
   it("redirects an active admin to the short-lived signed download", async () => {
