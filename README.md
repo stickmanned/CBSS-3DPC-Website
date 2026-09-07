@@ -11,11 +11,11 @@ This website is about the 3D printing club at Dr. Charles Best Secondary School.
 
 ![Homepage](docs/screenshots/home.png)
 
-**Upload a model and see it before you send it.** If you choose to upload a model, a preview will show up where you can select your desired colors (multicolor prints only).
+When you upload a model, you can preview it through the interactive 3D preview. For multicolor prints, you can paint your model with the colors previously selected.
 
 ![preview](docs/screenshots/model-preview.png)
 
-**200+ filament colors to choose from.** Pick up to 4 colors for multicolor printing! Note: we do not have 238 colors but if the user would like a certain color, we will buy that color.
+You can choose from a selection of over 200 unique colors for your 3D print. For multicolor prints, a maximum of 4 colors are allowed. We do not have all 238 colors in stock and ready, but if requested, we will buy them.
 
 ![filament colour picker](docs/screenshots/filament-picker.png)
 
@@ -24,9 +24,9 @@ This website is about the 3D printing club at Dr. Charles Best Secondary School.
 ![admin queue dashboard](docs/screenshots/admin-queue.png)
 
 ![requester status page ](docs/screenshots/status.png)
-**Requesters (whoever requested the print) can track their print and receive email updates via a link without a login along with additional email updates.**
+Requesters (whoever requested the print) can track their print and receive email updates via a link without a login along with additional email updates.
 ![admin stats](docs/screenshots/adminstats.png)
-**Admin status page for individual requests**
+Admin status page for individual requests
 
 
 
