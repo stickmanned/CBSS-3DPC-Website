@@ -13,10 +13,9 @@ export default function ActionMessage({ state }: { state: AdminActionState }) {
     <p
       className={`rounded-xl border px-4 py-3 text-sm font-semibold ${toneClass[state.tone]}`}
       role={state.tone === "error" ? "alert" : "status"}
-      aria-live="polite"
+      aria-live={state.tone === "error" ? "assertive" : "polite"}
     >
       {state.message}
     </p>
   );
 }
-

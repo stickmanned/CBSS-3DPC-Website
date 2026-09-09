@@ -41,7 +41,7 @@ function Count({
       </span>
       <span className="mt-3 block font-display text-base font-bold text-white">{label}</span>
       <span className="mt-1 block text-sm text-white/60">{note}</span>
-      <span className="mt-2 inline-block text-sm text-white/45 underline decoration-white/25 underline-offset-4 transition-colors duration-[var(--dur-hover)] group-hover:text-white group-hover:decoration-white/60">
+      <span className="mt-2 inline-block text-sm text-white/55 underline decoration-white/30 underline-offset-4 transition-colors duration-[var(--dur-hover)] group-hover:text-white group-hover:decoration-white/60">
         {live ? "Show these" : "Nothing waiting"}
       </span>
     </Link>

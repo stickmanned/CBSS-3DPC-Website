@@ -9,6 +9,7 @@ import { getDatabase } from "@/app/lib/db";
 import {
   adminUser,
   printRequest,
+  requestFile,
 } from "@/app/lib/db/schema";
 import {
   dispatchEventRecipient,
@@ -25,6 +26,7 @@ import {
 } from "@/app/lib/queue/errors";
 import { createQueueRepository } from "@/app/lib/queue/repository";
 import { QueueService } from "@/app/lib/queue/service";
+import { deleteRetainedModelObject } from "@/app/lib/storage/retention";
 
 export type AdminActionState = {
   tone: "idle" | "success" | "warning" | "error";
@@ -150,6 +152,126 @@ const rowSelectionSchema = z.object({
   requestId: UUID,
   expectedVersion: z.coerce.number().int().nonnegative(),
 });
+
+const deleteRequestSchema = z.object({
+  requestId: UUID,
+  expectedVersion: z
+    .string()
+    .regex(/^(0|[1-9][0-9]*)$/)
+    .transform(Number)
+    .pipe(z.number().int().nonnegative().max(2_147_483_647)),
+  confirmationRef: z.string().regex(/^CBSS-[0-9]{4}$/),
+});
+
+export async function deleteRequestAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdmin();
+
+  const parsed = deleteRequestSchema.safeParse({
+    requestId: value(formData, "requestId"),
+    expectedVersion: value(formData, "expectedVersion"),
+    confirmationRef: value(formData, "confirmationRef"),
+  });
+  if (!parsed.success) {
+    return {
+      tone: "error",
+      message:
+        "Deletion details were invalid. Refresh the dashboard and enter the request reference exactly as shown.",
+    };
+  }
+
+  let deletion:
+    | { outcome: "deleted"; storageKey: string | null }
+    | { outcome: "confirmation_mismatch" }
+    | null;
+  try {
+    const database = getDatabase();
+    deletion = await database.transaction(async (transaction) => {
+      const [candidate] = await transaction
+        .select({
+          id: printRequest.id,
+          ref: printRequest.ref,
+          storageKey: requestFile.storageKey,
+          purgedAt: requestFile.purgedAt,
+        })
+        .from(printRequest)
+        .leftJoin(requestFile, eq(requestFile.requestId, printRequest.id))
+        .where(
+          and(
+            eq(printRequest.id, parsed.data.requestId),
+            eq(printRequest.version, parsed.data.expectedVersion),
+          ),
+        )
+        .limit(1)
+        .for("update", { of: printRequest });
+
+      if (!candidate) return null;
+      if (candidate.ref !== parsed.data.confirmationRef) {
+        return { outcome: "confirmation_mismatch" as const };
+      }
+
+      const [removed] = await transaction
+        .delete(printRequest)
+        .where(
+          and(
+            eq(printRequest.id, parsed.data.requestId),
+            eq(printRequest.version, parsed.data.expectedVersion),
+            eq(printRequest.ref, parsed.data.confirmationRef),
+          ),
+        )
+        .returning({ id: printRequest.id });
+
+      if (!removed) return null;
+      return {
+        outcome: "deleted" as const,
+        storageKey:
+          candidate.storageKey && candidate.purgedAt === null
+            ? candidate.storageKey
+            : null,
+      };
+    });
+  } catch {
+    return {
+      tone: "error",
+      message: "The print request could not be deleted. No changes were made.",
+    };
+  }
+
+  if (!deletion) {
+    return {
+      tone: "warning",
+      message:
+        "This request changed or no longer exists. Refresh the dashboard before deleting it.",
+    };
+  }
+  if (deletion.outcome === "confirmation_mismatch") {
+    return {
+      tone: "error",
+      message: "The confirmation reference did not match. Nothing was deleted.",
+    };
+  }
+
+  let storageCleanupFailed = false;
+  if (deletion.storageKey) {
+    try {
+      await deleteRetainedModelObject(deletion.storageKey);
+    } catch {
+      storageCleanupFailed = true;
+    }
+  }
+
+  revalidatePath("/admin");
+  if (storageCleanupFailed) {
+    return {
+      tone: "warning",
+      message:
+        "Print request deleted, but its uploaded model could not be removed yet. Automatic storage cleanup will retry later.",
+    };
+  }
+  return { tone: "success", message: "Print request deleted." };
+}
 
 function parseRowSelection(raw: string) {
   const separator = raw.lastIndexOf(":");

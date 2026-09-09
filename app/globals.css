@@ -463,6 +463,50 @@ button {
   box-shadow: var(--glow-signal);
 }
 
+/* Destructive controls use the stocked terracotta as a warning, then become
+   solid only at the point of commitment. This keeps queue rows calm while the
+   confirmation dialog still makes the irreversible action unmistakable. */
+.btn--danger,
+.btn--danger-quiet {
+  border-color: var(--color-terracotta);
+  color: #ffffff;
+}
+
+.btn--danger {
+  background: var(--color-terracotta);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 1px 2px rgb(84 33 20 / 0.24),
+    0 6px 16px rgb(177 85 51 / 0.22);
+}
+
+.btn--danger-quiet {
+  border-color: rgb(177 85 51 / 0.36);
+  background: transparent;
+  color: var(--color-terracotta);
+  box-shadow: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--danger:hover,
+  .btn--danger-quiet:hover {
+    border-color: var(--color-terracotta);
+    background: var(--color-terracotta);
+    color: #ffffff;
+    box-shadow:
+      0 2px 4px rgb(84 33 20 / 0.22),
+      0 12px 26px rgb(177 85 51 / 0.28);
+  }
+}
+
+.btn--danger:active:not(:disabled),
+.btn--danger-quiet:active:not(:disabled) {
+  border-color: var(--color-signal);
+  background: var(--color-ink);
+  color: #ffffff;
+  box-shadow: var(--glow-signal);
+}
+
 /* ---- Pressable surfaces -------------------------------------------------
    Large link cards get the same physics at a slower, heavier scale — a big
    object should feel heavier than a pill.

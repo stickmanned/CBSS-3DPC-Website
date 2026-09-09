@@ -144,7 +144,7 @@ export default async function AdminRequestDetailPage({
     <div className="min-w-0">
       <section className="build-grid-dark bg-ink px-5 py-9 text-white">
         <div className="mx-auto max-w-6xl">
-          <AdminHeader admin={result.admin} backHref="/admin#requests" backLabel="Back to queue" />
+          <AdminHeader admin={result.admin} backHref="/admin#pipeline" backLabel="Back to queue" />
           <div className="mt-9 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="eyebrow text-signal">Print request</p>

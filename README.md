@@ -15,7 +15,7 @@ When you upload a model, you can preview it through the interactive 3D preview. 
 
 ![preview](docs/screenshots/model-preview.png)
 
-You can choose from a selection of over 200 unique colors for your 3D print. For multicolor prints, a maximum of 4 colors are allowed. We do not have all 238 colors in stock and ready, but if requested, we will buy them.
+You can choose from a selection of over 200 unique colors for your 3D print. For multicolor prints, a maximum of 4 colors are allowed. We do not have all 238 colors in stock and ready, but, if requested, we will buy them.
 
 ![filament colour picker](docs/screenshots/filament-picker.png)
 

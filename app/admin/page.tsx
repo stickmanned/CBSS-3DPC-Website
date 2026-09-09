@@ -41,6 +41,19 @@ function csvHref(filters: DashboardFilters): string {
   return suffix ? `/api/admin/export?${suffix}` : "/api/admin/export";
 }
 
+function advancedFilterCount(filters: DashboardFilters): number {
+  return [
+    filters.view === "custom",
+    filters.stalledOnly,
+    Boolean(filters.material),
+    Boolean(filters.createdFrom),
+    Boolean(filters.createdTo),
+    Boolean(filters.search),
+    filters.sort !== "urgency",
+    filters.sort !== "urgency" && filters.direction === "asc",
+  ].filter(Boolean).length;
+}
+
 function Stat({ label, value, note }: { label: string; value: string | number; note?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-t border-mist py-2.5 first:border-t-0 first:pt-0">
@@ -71,9 +84,10 @@ export default async function AdminDashboardPage({
   const median = dashboard.stats.medianDays;
   const activeView = filters.stalledOnly ? "custom" : filters.view;
   const atCap = rows.length === PIPELINE_LIMIT;
+  const activeFilterCount = advancedFilterCount(filters);
 
   return (
-    <div className="mx-auto min-w-0 max-w-6xl space-y-10 px-5 py-8 sm:space-y-14 sm:py-10">
+    <div className="mx-auto min-w-0 max-w-7xl space-y-10 px-5 py-8 sm:space-y-14 sm:py-10">
       <AttentionBand admin={dashboard.admin} attention={dashboard.attention} />
 
       <section id="pipeline" aria-labelledby="pipeline-title" className="scroll-mt-6">
@@ -117,21 +131,30 @@ export default async function AdminDashboardPage({
           </ul>
         </nav>
 
-        <details className="group mt-4 rounded-[var(--radius-card)] border border-mist bg-snow">
+        <details
+          open={activeFilterCount > 0}
+          className="group mt-4 rounded-[var(--radius-card)] border border-mist bg-snow"
+        >
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 text-sm font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">
-            Search and filter
-            <span
-              aria-hidden="true"
-              className="text-slate transition-transform duration-[var(--dur-hover)] group-open:rotate-45"
-            >
-              +
+            <span className="flex flex-wrap items-center gap-2">
+              Search and filter
+              {activeFilterCount > 0 && (
+                <span className="tnum rounded-[var(--radius-pill)] bg-navy px-2.5 py-1 text-xs text-snow">
+                  {activeFilterCount} active
+                </span>
+              )}
             </span>
+            <span aria-hidden="true" className="text-slate transition-transform duration-[var(--dur-hover)] group-open:rotate-45">+</span>
           </summary>
           <form
             method="get"
             className="border-t border-mist p-5"
             aria-label="Filter print requests"
           >
+            {filters.view !== "custom" && (
+              <input type="hidden" name="view" value={filters.view} />
+            )}
+            {filters.stalledOnly && <input type="hidden" name="stale" value="1" />}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <label className="block md:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-ink">Request reference</span>
@@ -157,7 +180,7 @@ export default async function AdminDashboardPage({
               <label className="block">
                 <span className="mb-2 block text-sm font-bold text-ink">Sort</span>
                 <select name="sort" defaultValue={filters.sort} className="field w-full">
-                  <option value="urgency">Urgency</option>
+                  <option value="urgency">Urgency (fixed order)</option>
                   <option value="created">Created date</option>
                   <option value="deadline">Deadline</option>
                   <option value="quantity">Quantity</option>
@@ -172,13 +195,15 @@ export default async function AdminDashboardPage({
                 <span className="mb-2 block text-sm font-bold text-ink">Created to</span>
                 <input type="date" name="to" defaultValue={filters.createdTo ?? ""} className="field w-full" />
               </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-bold text-ink">Direction</span>
-                <select name="direction" defaultValue={filters.direction} className="field w-full">
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
-                </select>
-              </label>
+              {filters.sort !== "urgency" && (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-ink">Direction</span>
+                  <select name="direction" defaultValue={filters.direction} className="field w-full">
+                    <option value="desc">Descending</option>
+                    <option value="asc">Ascending</option>
+                  </select>
+                </label>
+              )}
             </div>
 
             <fieldset className="mt-5">
