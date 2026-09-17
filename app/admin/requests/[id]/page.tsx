@@ -130,6 +130,16 @@ export default async function AdminRequestDetailPage({
       ? [{ slug: color.slug, name: color.name, hex: color.hex, swatch: color.swatch }]
       : [];
   });
+  // Derived, never pinned: the club is reachable on more than one hostname,
+  // and the apex spent its first weeks sinkholed by the school network's DNS
+  // filter. A re-upload link hardcoded to one domain is a dead link to any
+  // requester who cannot resolve it. No origin configured means no link at
+  // all, the same way the transition previews degrade rather than guess.
+  const requestFormUrl = (() => {
+    const origin = configuredSiteOrigin();
+    return origin ? `${origin}/request` : null;
+  })();
+
   // A purged file is already stamped in the database. This catches the other
   // shape: the row is intact and the object is not, which otherwise renders a
   // viewer that 404s and a download button that leads to an R2 error page.
@@ -320,7 +330,7 @@ export default async function AdminRequestDetailPage({
                           <EmailLink
                             address={request.requesterEmail}
                             subject={`Re-upload needed for print request ${request.ref}`}
-                            body={`Hi ${request.requesterName},\n\nWe are missing the model file for your print request ${request.ref} (${file.originalName}). Could you submit it again at https://3dprintingclub.org/request? Everything else on the request is unchanged.\n\nThanks,\nCBSS 3D Printing Club`}
+                            body={`Hi ${request.requesterName},\n\nWe are missing the model file for your print request ${request.ref} (${file.originalName}). Could you submit it again${requestFormUrl ? ` at ${requestFormUrl}` : " through the club's print request form"}? Everything else on the request is unchanged.\n\nThanks,\nCBSS 3D Printing Club`}
                             className="font-semibold text-navy underline underline-offset-4"
                           >
                             Email {request.requesterName} for a re-upload

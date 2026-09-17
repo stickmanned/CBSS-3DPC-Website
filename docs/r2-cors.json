@@ -1,6 +1,9 @@
 [
   {
     "AllowedOrigins": [
+      "https://3dprintingclub.org",
+      "https://www.3dprintingclub.org",
+      "https://cbss.3dprintingclub.org",
       "https://cbss-3dpc-website.vercel.app",
       "http://localhost:3000"
     ],
