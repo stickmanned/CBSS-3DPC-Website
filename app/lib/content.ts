@@ -19,6 +19,35 @@ export const club = {
   sponsorEmail: "danania@sd43.bc.ca",
 };
 
+/* ---- Teams ------------------------------------------------------
+   The club runs out of a Microsoft Teams team. All three routes below
+   open the same team and all three need a school (sd43) account, so
+   they move together: if the team is ever recreated, the code and the
+   link change AND public/img/teams-qr.png has to be regenerated from
+   the new link. A stale QR is the failure nobody notices, because it
+   still scans — it just lands somewhere that no longer exists. */
+export const teams = {
+  code: "s3yqurx",
+  url: "https://teams.microsoft.com/l/team/19%3AOYoLtzDA1zUgCFH-588ENOhAz0dJ7chJxJ2QOJyu2cQ1%40thread.tacv2/conversations?groupId=92bae179-8df7-4ab8-8822-5bfc72f0aa12&tenantId=d9658cef-0292-4252-9925-6442de24a44b",
+  /* Encodes `url` above verbatim — no shortener in between, so nothing
+     else has to keep working for a scan to land on the team. Denser
+     for it (57 modules against 33), which is why it is displayed big.
+     It still decodes in software at 160px, but a phone camera aimed at
+     a screen has far less to work with than a clean downscale, so the
+     headroom is the point — do not shrink it to fill a gap.
+     Regenerate after any change to `url`, from the repo root:
+
+       npx -y qrcode -o public/img/teams-qr.png -e M -q 4 -s 12 \
+         -d 1b2233 -l ffffff "<the url above>"
+
+     (-q is the quiet zone in modules; -m is the mask pattern, not the
+     margin, and setting it by hand is how you get a QR that scans on
+     one phone and not the next.)
+
+     Then scan it with an actual phone before committing. */
+  qr: "/img/teams-qr.png",
+};
+
 export const meetingFacts = [
   { label: "Meet", value: club.meets },
   { label: "Time", value: club.time },

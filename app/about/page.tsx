@@ -1,9 +1,10 @@
 import EmailLink from "@/app/components/EmailLink";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Button from "../components/Button";
 import PageIntro from "../components/PageIntro";
 import ScrollReveal from "../components/ScrollReveal";
-import { club, meetingFacts } from "../lib/content";
+import { club, meetingFacts, teams } from "../lib/content";
 
 export const metadata: Metadata = {
   title: "About",
@@ -110,6 +111,60 @@ export default function About() {
                   </div>
                 ))}
               </dl>
+            </div>
+          </section>
+
+          {/* Three doors into the same team, because no single one works
+              for everyone: the link is what a phone or a signed-in
+              Chromebook can follow, the code is for anyone already sitting
+              in the desktop app, and the QR is what a poster on the
+              drafting-room wall can carry. */}
+          <section className="tile tile--w4">
+            <div className="grid gap-8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div>
+                <span className="label">Teams channel</span>
+                <h2 className="mt-2 text-3xl text-ink">
+                  The rest of the week happens on Teams.
+                </h2>
+                <p className="mt-4 max-w-[56ch] text-lg leading-relaxed text-slate">
+                  It&rsquo;s where the club talks between {club.meets}. You
+                  need your school ({club.emailDomain}) account to get in
+                  &mdash; a personal account will be turned away at the door.
+                </p>
+
+                <a
+                  href={teams.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn--primary mt-6 w-fit"
+                >
+                  Open the team <span aria-hidden="true">→</span>
+                </a>
+
+                <p className="mt-7 max-w-[56ch] text-slate">
+                  Already in the Teams app? Use{" "}
+                  <span className="font-bold text-ink">
+                    Teams → Join or create a team → Join a team with a code
+                  </span>{" "}
+                  and type in our team code:
+                </p>
+                <p className="tnum mt-3 font-mono text-2xl font-bold tracking-[0.12em] text-ink">
+                  {teams.code}
+                </p>
+              </div>
+
+              <figure className="mx-auto w-fit sm:mx-0">
+                <Image
+                  src={teams.qr}
+                  alt={`QR code that opens the ${club.name} team in Microsoft Teams`}
+                  width={780}
+                  height={780}
+                  className="size-48 rounded-[var(--radius-card)] border-2 border-ink bg-white sm:size-56"
+                />
+                <figcaption className="mt-2.5 text-center text-sm text-slate">
+                  Or scan this
+                </figcaption>
+              </figure>
             </div>
           </section>
 

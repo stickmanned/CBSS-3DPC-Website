@@ -28,9 +28,35 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
 ] as const;
 
+/* The club's own home is cbss.3dprintingclub.org. The apex is being kept back
+   for a general hub for other clubs, so apex and www move to the subdomain
+   instead of serving a second copy of the same pages under a name that is
+   going to mean something else.
+
+   307, not 308. A permanent redirect is cached by browsers more or less
+   forever, and the apex has a different future; a cached 308 would keep
+   sending people to the club site long after the apex stopped being it.
+
+   The *.vercel.app alias is deliberately left alone. It is the only hostname
+   for this site that resolves on the school network, where the whole
+   3dprintingclub.org zone is sinkholed, so redirecting it would take away the
+   one address that still works from a school device. */
+const canonicalOrigin = "https://cbss.3dprintingclub.org";
+const clubHostPattern = "(?:www\\.)?3dprintingclub\\.org";
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: clubHostPattern }],
+        destination: `${canonicalOrigin}/:path*`,
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

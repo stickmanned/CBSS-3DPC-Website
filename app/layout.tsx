@@ -43,7 +43,15 @@ const atkinson = Atkinson_Hyperlegible({
   display: "swap",
 });
 
+/* Absolute URLs in metadata, and the canonical tag search engines read, both
+   hang off this. The apex 307s here (see next.config.ts), and the *.vercel.app
+   alias serves the same pages for school devices; naming one home keeps those
+   three addresses from competing as three separate sites. */
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://cbss.3dprintingclub.org",
+  ),
+  alternates: { canonical: "./" },
   title: {
     default: `${club.name} | ${club.school}`,
     template: `%s | ${club.name}`,
