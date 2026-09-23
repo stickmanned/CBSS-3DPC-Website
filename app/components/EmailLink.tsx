@@ -53,15 +53,24 @@ export default function EmailLink({
   if (body) query.set("body", body);
   const suffix = query.toString();
 
+  // Both controls are shorter than the 24px minimum touch target (the Copy
+  // button is 16px), so each gets an invisible ::before that extends its hit
+  // area by 4px above and below without moving anything. ::before, not
+  // ::after — .footer-link already draws its underline with ::after. The
+  // 8px row gap keeps the two enlarged areas from overlapping when Copy wraps
+  // under the address.
   return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <a href={`mailto:${address}${suffix ? `?${suffix}` : ""}`} className={className}>
+    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-2">
+      <a
+        href={`mailto:${address}${suffix ? `?${suffix}` : ""}`}
+        className={`relative before:absolute before:inset-x-0 before:-inset-y-1 ${className}`}
+      >
         {children ?? address}
       </a>
       <button
         type="button"
         onClick={handleCopy}
-        className="text-xs font-semibold text-slate underline underline-offset-2 transition-colors hover:text-navy"
+        className="relative text-xs font-semibold text-slate underline underline-offset-2 transition-colors before:absolute before:-inset-x-1 before:-inset-y-1 hover:text-navy"
         aria-label={`Copy ${address} to the clipboard`}
       >
         {state === "copied" ? "Copied" : state === "failed" ? "Select it above" : "Copy"}

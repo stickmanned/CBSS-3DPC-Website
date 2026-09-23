@@ -19,6 +19,14 @@ export const club = {
   sponsorEmail: "danania@sd43.bc.ca",
 };
 
+/* ---- Club sign-up ----------------------------------------------
+   A Fillout form, embedded on /about. `url` is the plain share link,
+   the fallback for anyone whose network or blocker stops the embed. */
+export const signupForm = {
+  id: "cuz2BFxYmJus",
+  url: "https://forms.fillout.com/t/cuz2BFxYmJus",
+};
+
 /* ---- Teams ------------------------------------------------------
    The club runs out of a Microsoft Teams team. All three routes below
    open the same team and all three need a school (sd43) account, so

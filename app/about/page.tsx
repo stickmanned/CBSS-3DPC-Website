@@ -2,9 +2,10 @@ import EmailLink from "@/app/components/EmailLink";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Button from "../components/Button";
+import ClubSignupForm from "../components/ClubSignupForm";
 import PageIntro from "../components/PageIntro";
 import ScrollReveal from "../components/ScrollReveal";
-import { club, meetingFacts, teams } from "../lib/content";
+import { club, meetingFacts, signupForm, teams } from "../lib/content";
 
 export const metadata: Metadata = {
   title: "About",
@@ -92,12 +93,14 @@ export default function About() {
                     How to join
                   </dt>
                   <dd className="mt-1.5 text-white/85">
-                    Email{" "}
-                    <EmailLink
-                      address={club.contactEmail}
-                      className="break-all font-bold text-signal underline underline-offset-4"
-                    />{" "}
-                    with your name and student email to get added to our Teams.
+                    Fill out the{" "}
+                    <a
+                      href="#signup"
+                      className="font-bold text-signal underline underline-offset-4"
+                    >
+                      sign-up form
+                    </a>{" "}
+                    below to get added to our Teams.
                   </dd>
                 </div>
                 {meetingFacts.map((fact) => (
@@ -111,6 +114,27 @@ export default function About() {
                   </div>
                 ))}
               </dl>
+            </div>
+          </section>
+
+          <section id="signup" className="tile tile--w4 scroll-mt-32">
+            <span className="label">Club sign-up</span>
+            <h2 className="mt-2 text-3xl text-ink">Sign up for the club.</h2>
+            <p className="mt-4 max-w-[56ch] text-lg leading-relaxed text-slate">
+              Tell us a bit about yourself so we can add you to the club. If
+              the form doesn&rsquo;t load,{" "}
+              <a
+                href={signupForm.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-navy underline underline-offset-4"
+              >
+                open it in a new tab
+              </a>
+              .
+            </p>
+            <div className="mt-6">
+              <ClubSignupForm />
             </div>
           </section>
 
@@ -172,19 +196,28 @@ export default function About() {
             <span className="label">
               Club contacts
             </span>
-            <div className="mt-3 grid gap-1.5">
-              <EmailLink
-                address={club.contactEmail}
-                className="footer-link break-all font-display text-lg font-bold"
-              >
-                Contact William - {club.contactEmail}
-              </EmailLink>
-              <EmailLink
-                address={`080-pmaroufi@${club.emailDomain}`}
-                className="footer-link break-all font-display text-lg font-bold"
-              >
-                Contact Paya - 080-pmaroufi@{club.emailDomain}
-              </EmailLink>
+            {/* Name and address on separate lines, like the sponsor tile: run
+                together on one line, a phone-width tile has to break the
+                address mid-word. */}
+            <div className="mt-3 grid gap-4">
+              <div>
+                <p className="font-display text-lg font-bold text-ink">
+                  William
+                </p>
+                <EmailLink
+                  address={club.contactEmail}
+                  className="footer-link mt-1 break-all text-slate"
+                />
+              </div>
+              <div>
+                <p className="font-display text-lg font-bold text-ink">
+                  Paya
+                </p>
+                <EmailLink
+                  address={`080-pmaroufi@${club.emailDomain}`}
+                  className="footer-link mt-1 break-all text-slate"
+                />
+              </div>
             </div>
           </section>
 
