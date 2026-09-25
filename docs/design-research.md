@@ -10,7 +10,7 @@
 > **Why it missed.** The reference set is national nonprofits and product
 > companies — organizations whose design problem is establishing credibility
 > with strangers at scale. A school club's problem is the opposite: a student
-> who already walks past Room 113 every day needs the club to feel
+> who already walks past Room 213 every day needs the club to feel
 > approachable. Every recommendation here is a credibility-with-strangers
 > move, correctly executed against the wrong audience. In practice that
 > produced oversized type, 21 uppercase eyebrow labels, blueprint-grid
@@ -72,7 +72,7 @@ This adapts the mission-to-action progression on the Obama Foundation homepage, 
 
 ### 2. Make trust visible, specific, and human
 
-Put **Tuesdays, 3:30–4:30 PM · Room 113 Drafting** near the first actions. Identify Mr. Anania as the sponsor and distinguish the student and sponsor contact addresses. Explain what happens after a print request, what files are useful, and that feasibility/timing is confirmed rather than guaranteed.
+Put **Tuesdays, 3:30–4:30 PM · Room 213 Drafting** near the first actions. Identify Mr. Anania as the sponsor and distinguish the student and sponsor contact addresses. Explain what happens after a print request, what files are useful, and that feasibility/timing is confirmed rather than guaranteed.
 
 Use authentic club evidence: a print's name, what problem or idea it began with, who made it (with consent), and a crisp image of the finished object. Named makers and concrete outputs are central to Hack Club's project showcase; Kiva similarly links each action to a person and a specific purpose. ([Hack Club](https://hackclub.com/), [Kiva](https://www.kiva.org/))
 
@@ -123,7 +123,7 @@ Suggested hero copy:
 > Design, prototype, and bring your next idea to life with the CBSS 3D Printing Club.
 
 Primary actions: **Request a Print** · **Join the Club**  
-Utility line: **Tuesdays · 3:30–4:30 PM · Room 113 Drafting**
+Utility line: **Tuesdays · 3:30–4:30 PM · Room 213 Drafting**
 
 ## Design acceptance checks
 

@@ -10,7 +10,7 @@ export const club = {
   short: "CBSS 3DPC",
   school: "Dr. Charles Best Secondary",
   district: "SD43",
-  room: "Room 113 Drafting",
+  room: "Room 213 Drafting",
   meets: "Tuesdays",
   time: "3:30–4:30 PM",
   emailDomain: "sd43.bc.ca",

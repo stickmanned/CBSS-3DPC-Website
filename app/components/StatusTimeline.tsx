@@ -34,7 +34,7 @@ export const STATUS_PRESENTATION: Record<
   },
   ready_for_pickup: {
     label: "Ready for pickup",
-    description: "The finished print is ready in Room 113 (Drafting).",
+    description: "The finished print is ready in Room 213 (Drafting).",
   },
   print_failed: {
     label: "Print failed",

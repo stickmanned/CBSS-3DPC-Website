@@ -90,7 +90,7 @@ export default async function PrivateStatusPage({
           </p>
           {ready && (
             <p className="mt-6 rounded-xl border border-white/20 bg-white/10 px-5 py-4 text-sm text-white">
-              Pickup is in Room 113 (Drafting), Tuesdays from 3:30–4:30 PM. Reply to the club email if another time is needed.
+              Pickup is in Room 213 (Drafting), Tuesdays from 3:30–4:30 PM. Reply to the club email if another time is needed.
             </p>
           )}
         </header>

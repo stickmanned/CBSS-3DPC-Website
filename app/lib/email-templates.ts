@@ -239,7 +239,7 @@ export function renderReadyForPickupEmail(rawTokens: QueueEmailTokens): EmailTem
     subject: "Your print is ready",
     text: `Hi ${tokens.first_name},
 
-${tokens.model_name} is ready for pickup in Room 113 (Drafting).
+${tokens.model_name} is ready for pickup in Room 213 (Drafting).
 
 We're there Tuesdays from 3:30–4:30 PM. If that doesn't work, reply and we'll arrange another time.
 
@@ -255,7 +255,7 @@ export function renderUncollectedEmail(rawTokens: QueueEmailTokens): EmailTempla
     subject: "Your print is still waiting",
     text: `Hi ${tokens.first_name},
 
-${tokens.model_name} is still waiting for you in Room 113 (Drafting).
+${tokens.model_name} is still waiting for you in Room 213 (Drafting).
 
 We'll hold it for the rest of the term. Reply if you need to arrange a pickup time.
 
