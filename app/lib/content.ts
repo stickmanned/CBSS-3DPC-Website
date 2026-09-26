@@ -16,7 +16,7 @@ export const club = {
   emailDomain: "sd43.bc.ca",
   contactEmail: "080-wwen@sd43.bc.ca",
   sponsorName: "Mr. Anania",
-  sponsorEmail: "danania@sd43.bc.ca",
+  sponsorEmail: "daanania@sd43.bc.ca",
 };
 
 /* ---- Club sign-up ----------------------------------------------
